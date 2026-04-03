@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Fountain Map — Scituate High School</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f7f6f3;
+  --white: #ffffff;
+  --border: #e0ddd6;
+  --border2: #ccc9c0;
+  --text: #1c1b18;
+  --text2: #5c5a53;
+  --text3: #9e9c94;
+  --serif: 'Instrument Serif', Georgia, serif;
+  --sans: 'DM Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+}
+html, body { background: var(--bg); color: var(--text); font-family: var(--sans); }
+
+nav {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 0 40px;
+  height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-brand {
+  font-family: var(--serif); font-size: 18px;
+  color: var(--text); text-decoration: none;
+  display: flex; align-items: baseline; gap: 7px;
+}
+.nav-brand .water-word {
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--text3);
+}
+.nav-cta {
+  font-size: 13px; font-family: var(--mono);
+  background: var(--text); color: var(--white);
+  padding: 7px 16px; border-radius: 5px;
+  text-decoration: none; transition: opacity 0.15s;
+}
+.nav-cta:hover { opacity: 0.8; }
+
+/* Hero */
+.hero {
+  position: relative; overflow: hidden;
+  background: var(--white); border-bottom: 1px solid var(--border);
+  min-height: 460px; display: flex; flex-direction: column;
+}
+.hero-text-block {
+  position: relative; z-index: 3;
+  padding: 56px 40px 0; pointer-events: none;
+}
+.hero-eyebrow {
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 16px;
+}
+.hero-title {
+  font-family: var(--serif);
+  font-size: clamp(52px, 8vw, 108px);
+  font-weight: 400; line-height: 0.95;
+  letter-spacing: -0.02em; color: var(--text);
+}
+.hero-title em { font-style: italic; color: var(--text2); }
+
+.hero-graphic { position: relative; flex: 1; min-height: 200px; margin-top: -16px; }
+.hero-fp-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: 35% 30%;
+  opacity: 0.12; filter: saturate(0) contrast(1.1);
+  pointer-events: none; user-select: none;
+}
+.hero-fade-up {
+  position: absolute; top: 0; left: 0; right: 0; height: 110px;
+  background: linear-gradient(to bottom, #ffffff 0%, transparent 100%);
+  z-index: 2; pointer-events: none;
+}
+.hero-fade-down {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 70px;
+  background: linear-gradient(to top, #ffffff 0%, transparent 100%);
+  z-index: 2; pointer-events: none;
+}
+
+.hero-bottom {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 4;
+  padding: 0 40px 32px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 40px;
+}
+.hero-desc { max-width: 380px; }
+.hero-desc p { font-size: 14px; color: var(--text2); line-height: 1.65; margin-bottom: 20px; }
+.hero-cta-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.btn-main {
+  background: var(--text); color: var(--white);
+  font-family: var(--mono); font-size: 12px;
+  padding: 9px 18px; border-radius: 5px;
+  text-decoration: none; transition: opacity 0.15s;
+}
+.btn-main:hover { opacity: 0.78; }
+
+.hero-stats { display: flex; gap: 24px; flex-shrink: 0; align-items: flex-end; }
+.stat { text-align: right; }
+.stat-n { font-family: var(--serif); font-size: 38px; font-weight: 400; letter-spacing: -0.03em; line-height: 1; }
+.stat-l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--text3); text-transform: uppercase; margin-top: 2px; }
+
+/* Categories section */
+.body-wrap { max-width: 800px; margin: 0 auto; padding: 52px 40px 72px; }
+.section-head {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 18px;
+}
+.cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(138px, 1fr)); gap: 8px; }
+.cat {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 6px; padding: 11px 13px;
+  display: flex; align-items: center; gap: 9px;
+}
+.cat-pip { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.cat-name { font-size: 12px; color: var(--text2); font-family: var(--mono); }
+
+footer {
+  border-top: 1px solid var(--border); background: var(--white);
+  padding: 16px 40px;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+}
+.ft-brand {
+  font-family: var(--serif); font-size: 15px; color: var(--text3);
+  display: flex; align-items: baseline; gap: 6px;
+}
+.ft-brand .water-word { font-family: var(--mono); font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; }
+.ft-note { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+
+@media (max-width: 640px) {
+  nav, .hero-text-block, .hero-bottom, .body-wrap, footer { padding-left: 20px; padding-right: 20px; }
+  .hero-bottom { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-brand"><span class="water-word">water</span> Fountain Map</a>
+  <a href="map.html" class="nav-cta">open map →</a>
+</nav>
+
+<div class="hero">
+  <div class="hero-text-block">
+    <div class="hero-eyebrow">Scituate High School · Level 1 & 2</div>
+    <h1 class="hero-title">
+      Water<br>
+      <em>fountain</em><br>
+      rankings.
+    </h1>
+  </div>
+  <div class="hero-graphic">
+    <img src="img/floorplan.jpg" class="hero-fp-img" alt=""/>
+    <div class="hero-fade-up"></div>
+    <div class="hero-fade-down"></div>
+  </div>
+  <div class="hero-bottom">
+    <div class="hero-desc">
+      <p>A crowd-sourced guide to every water fountain at SHS. Rate each one across seven factors and see how they compare on the map.</p>
+      <div class="hero-cta-row">
+        <a href="map.html" class="btn-main">Open the map →</a>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-n">6</div><div class="stat-l">fountains</div></div>
+      <div class="stat"><div class="stat-n">7</div><div class="stat-l">categories</div></div>
+      <div class="stat"><div class="stat-n">14</div><div class="stat-l">ratings</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="body-wrap">
+  <div class="section-head">Rating categories</div>
+  <div class="cats">
+    <div class="cat"><div class="cat-pip" style="background:#3b82f6"></div><span class="cat-name">Taste</span></div>
+    <div class="cat"><div class="cat-pip" style="background:#06b6d4"></div><span class="cat-name">Pressure</span></div>
+    <div class="cat"><div class="cat-pip" style="background:#8b5cf6"></div><span class="cat-name">Temperature</span></div>
+    <div class="cat"><div class="cat-pip" style="background:#10b981"></div><span class="cat-name">Bottle fill speed</span></div>
+    <div class="cat"><div class="cat-pip" style="background:#f59e0b"></div><span class="cat-name">Reliability</span></div>
+    <div class="cat"><div class="cat-pip" style="background:#ef4444"></div><span class="cat-name">Cleanliness</span></div>
+    <div class="cat"><div class="cat-pip" style="background:#ec4899"></div><span class="cat-name">Accessibility</span></div>
+  </div>
+</div>
+
+<footer>
+  <span class="ft-brand"><span class="water-word">water</span> Fountain Map</span>
+  <span class="ft-note">SHS · Levels 1 & 2 · crowd-sourced ratings</span>
+</footer>
+</body>
+</html>

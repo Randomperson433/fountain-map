@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Map — Fountain Map SHS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f0efec;
+  --white: #ffffff;
+  --border: #d6d4cf;
+  --border2: #b8b5af;
+  --text: #1a1a1a;
+  --text2: #555450;
+  --text3: #999791;
+  --serif: 'Instrument Serif', Georgia, serif;
+  --sans: 'DM Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+  --panel-w: 320px;
+  --nav-h: 52px;
+  --toolbar-h: 40px;
+}
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--sans); }
+
+/* ── Nav ── */
+nav {
+  height: var(--nav-h);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--white);
+  position: relative; z-index: 50; flex-shrink: 0;
+}
+.nav-brand { font-family: var(--serif); font-size: 17px; text-decoration: none; color: var(--text); display: flex; align-items: baseline; gap: 6px; }
+.nav-brand .water-word { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text3); font-style: normal; }
+.nav-right { display: flex; align-items: center; gap: 14px; }
+.nav-tag { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.nav-back {
+  font-family: var(--mono); font-size: 11px;
+  border: 1px solid var(--border2); background: none;
+  color: var(--text2); padding: 5px 12px;
+  border-radius: 4px; cursor: pointer;
+  text-decoration: none; transition: border-color 0.15s, color 0.15s;
+}
+.nav-back:hover { color: var(--text); }
+
+/* ── Layout ── */
+#layout { display: flex; height: calc(100vh - var(--nav-h)); overflow: hidden; }
+
+/* ── Map area ── */
+#map-area {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Toolbar ── */
+.toolbar {
+  height: var(--toolbar-h);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--white); flex-shrink: 0;
+}
+.tb-left { display: flex; align-items: center; gap: 16px; }
+.floor-switch {
+  display: flex; border: 1px solid var(--border2); border-radius: 5px; overflow: hidden;
+}
+.floor-btn {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em;
+  padding: 4px 12px; background: none; border: none; cursor: pointer;
+  color: var(--text3); transition: background 0.15s, color 0.15s;
+}
+.floor-btn:first-child { border-right: 1px solid var(--border2); }
+.floor-btn.active { background: var(--text); color: var(--white); }
+.tb-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; }
+.legend { display: flex; align-items: center; gap: 5px; }
+.leg-grad {
+  width: 72px; height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, #9b1c1c, #dc2626, #f97316, #eab308, #22c55e, #15803d);
+}
+.leg-lo, .leg-hi { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+
+/* ── Map container ── */
+#map-container {
+  flex: 1; position: relative; overflow: hidden;
+  background: var(--bg); cursor: default;
+}
+#floorplan-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; object-position: center;
+  opacity: 0.6; filter: saturate(0.2) contrast(1.05);
+  user-select: none; pointer-events: none;
+}
+#dots-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+.f-dot { cursor: pointer; }
+.f-dot .f-ring { fill: none; stroke-width: 2; opacity: 0; transition: opacity 0.15s; }
+.f-dot .f-core { transition: r 0.12s; stroke: rgba(255,255,255,0.6); stroke-width: 1.5; }
+.f-dot:hover .f-ring { opacity: 0.5; }
+.f-dot:hover .f-core { r: 11; }
+.f-dot.active .f-ring { opacity: 0.7; }
+.f-dot.active .f-core { r: 11; }
+
+/* ── Tooltip ── */
+#tooltip {
+  position: fixed; pointer-events: none;
+  background: var(--white); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 12px 14px;
+  min-width: 195px; z-index: 200; display: none;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+.tt-name { font-family: var(--serif); font-size: 15px; margin-bottom: 8px; color: var(--text); }
+.tt-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); font-family: var(--mono); margin: 2px 0; }
+.tt-row .v { color: var(--text); font-weight: 500; }
+.tt-div { height: 1px; background: var(--border); margin: 7px 0; }
+.tt-overall { display: flex; justify-content: space-between; font-size: 12px; font-weight: 500; font-family: var(--mono); }
+.tt-hint { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 5px; }
+
+/* ── Detail panel ── */
+#detail {
+  width: 0; overflow: hidden;
+  border-left: 1px solid var(--border);
+  background: var(--white);
+  display: flex; flex-direction: column;
+  transition: width 0.32s cubic-bezier(0.4,0,0.2,1);
+  flex-shrink: 0;
+}
+#detail.open { width: var(--panel-w); }
+
+#detail-inner {
+  width: var(--panel-w); height: 100%;
+  overflow-y: auto; display: flex; flex-direction: column;
+}
+
+/* Sticky header */
+.d-head {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--white); z-index: 2; flex-shrink: 0;
+}
+.d-back {
+  font-family: var(--mono); font-size: 11px; color: var(--text3);
+  background: none; border: none; padding: 0;
+  cursor: pointer; margin-bottom: 10px; letter-spacing: 0.05em;
+}
+.d-back:hover { color: var(--text2); }
+.d-name { font-family: var(--serif); font-size: 20px; line-height: 1.15; margin-bottom: 3px; }
+.d-loc { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+
+/* Tab strip */
+.tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  background: var(--white); flex-shrink: 0;
+}
+.tab {
+  flex: 1; padding: 9px 0; text-align: center;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+  color: var(--text3); cursor: pointer; border: none; background: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab:hover { color: var(--text2); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+/* ── Ratings view ── */
+.d-body { padding: 16px 18px; flex: 1; }
+
+.score-block { display: flex; align-items: baseline; gap: 3px; margin-bottom: 2px; }
+.score-n { font-family: var(--serif); font-size: 54px; line-height: 1; letter-spacing: -0.03em; }
+.score-d { font-family: var(--mono); font-size: 18px; color: var(--text3); }
+.score-meta { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-bottom: 20px; }
+
+.bars { margin-bottom: 20px; }
+.bar-row { margin-bottom: 9px; }
+.bar-meta { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+.bar-meta .bn { color: var(--text2); font-family: var(--mono); }
+.bar-meta .bv { font-family: var(--mono); font-weight: 500; }
+.bar-track { height: 4px; background: #e4e2de; border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 2px; transition: width 0.45s cubic-bezier(0.4,0,0.2,1); }
+
+/* fill-time average display under bar */
+.fill-time-avg {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  margin-top: 2px;
+}
+
+.rev-head {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+  color: var(--text3); text-transform: uppercase;
+  border-top: 1px solid var(--border); padding-top: 14px; margin-bottom: 10px;
+}
+.review {
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 11px; margin-bottom: 7px; background: var(--bg);
+}
+.r-top { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.r-author { font-size: 13px; font-weight: 500; color: var(--text); }
+.r-score { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+.r-chips { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 5px; }
+.r-chip {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em;
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 3px; padding: 2px 5px; color: var(--text2);
+}
+.r-chip.fill-chip { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+.r-note { font-size: 12px; color: var(--text2); font-style: italic; line-height: 1.4; }
+
+/* ── Add Rating form view ── */
+.form-body { padding: 16px 18px; flex: 1; }
+
+.field { margin-bottom: 14px; }
+.field-label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text3); margin-bottom: 5px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.field-label .score-preview {
+  font-size: 13px; font-weight: 500; font-family: var(--mono);
+  min-width: 20px; text-align: right;
+}
+
+/* Score slider */
+.score-slider {
+  width: 100%; height: 4px;
+  -webkit-appearance: none; appearance: none;
+  border-radius: 2px; outline: none; cursor: pointer;
+  background: #ece9e2;
+}
+.score-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--text);
+  border: 2px solid var(--white);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  cursor: pointer;
+}
+.score-slider::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text); border: 2px solid var(--white); cursor: pointer;
+}
+
+/* Fill time field — special two-part layout */
+.fill-time-group {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin-top: 5px;
+}
+.fill-time-input-wrap { display: flex; flex-direction: column; gap: 4px; }
+.fill-sub-label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text3);
+}
+.time-input {
+  width: 100%; font-family: var(--mono); font-size: 13px;
+  border: 1px solid var(--border2); border-radius: 4px;
+  padding: 7px 9px; background: var(--white); color: var(--text);
+  outline: none; transition: border-color 0.15s;
+}
+.time-input:focus { border-color: var(--text2); }
+.time-input::placeholder { color: var(--text3); }
+
+/* Divider between fields */
+.form-section-head {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text3);
+  border-top: 1px solid var(--border); padding-top: 14px;
+  margin-bottom: 12px; margin-top: 4px;
+}
+
+/* Name + note inputs */
+.text-input {
+  width: 100%; font-family: var(--sans); font-size: 13px;
+  border: 1px solid var(--border2); border-radius: 4px;
+  padding: 8px 10px; background: var(--white); color: var(--text);
+  outline: none; transition: border-color 0.15s;
+}
+.text-input:focus { border-color: var(--text2); }
+.text-input::placeholder { color: var(--text3); }
+
+.submit-btn {
+  width: 100%; margin-top: 16px;
+  background: var(--text); color: var(--white);
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em;
+  padding: 11px; border-radius: 5px;
+  border: none; cursor: pointer; transition: opacity 0.15s;
+}
+.submit-btn:hover { opacity: 0.8; }
+.submit-success {
+  text-align: center; padding: 24px 0 8px;
+  font-family: var(--mono); font-size: 12px; color: var(--text2);
+  display: none;
+}
+.submit-success .ss-check { font-size: 22px; margin-bottom: 8px; }
+
+/* ── Empty state ── */
+.no-sel {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px 20px; text-align: center; color: var(--text3);
+}
+.no-sel .ns-icon { font-size: 24px; margin-bottom: 10px; }
+.no-sel p { font-family: var(--mono); font-size: 11px; line-height: 1.7; letter-spacing: 0.04em; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-brand"><span class="water-word">water</span> Fountain Map</a>
+  <div class="nav-right">
+    <span class="nav-tag">Level 1 · SHS</span>
+    <a href="index.html" class="nav-back">← home</a>
+  </div>
+</nav>
+
+<div id="layout">
+  <div id="map-area">
+    <div class="toolbar">
+      <div class="tb-left">
+        <div class="floor-switch">
+          <button class="floor-btn active" id="fbtn-1" onclick="switchFloor(1)">Level 1</button>
+          <button class="floor-btn" id="fbtn-2" onclick="switchFloor(2)">Level 2</button>
+        </div>
+        <div class="legend">
+          <span class="leg-lo">0</span>
+          <div class="leg-grad"></div>
+          <span class="leg-hi">10</span>
+        </div>
+      </div>
+      <span class="tb-label" id="f-count"></span>
+    </div>
+    <div id="map-container">
+      <img src="img/floorplan.jpg" id="floorplan-img" alt="floor plan"/>
+      <img src="img/floorplan2.png" id="floorplan-img2" alt="floor plan level 2" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;opacity:0.6;filter:saturate(0.2) contrast(1.05);user-select:none;pointer-events:none;display:none;"/>
+      <svg id="dots-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+
+  <div id="detail">
+    <div id="detail-inner">
+
+      <!-- Empty state -->
+      <div class="no-sel" id="no-sel">
+        <div class="ns-icon">💧</div>
+        <p>Click a fountain dot<br/>to view its ratings</p>
+      </div>
+
+      <!-- Fountain detail (hidden until click) -->
+      <div id="detail-content" style="display:none; flex-direction:column; flex:1;">
+
+        <!-- Sticky header -->
+        <div class="d-head">
+          <button class="d-back" onclick="closeDetail()">← close</button>
+          <div class="d-name" id="d-name"></div>
+          <div class="d-loc" id="d-loc"></div>
+        </div>
+
+        <!-- Tab strip -->
+        <div class="tabs">
+          <button class="tab active" id="tab-ratings" onclick="switchTab('ratings')">Ratings</button>
+          <button class="tab" id="tab-add" onclick="switchTab('add')">Add rating</button>
+        </div>
+
+        <!-- ── Ratings tab ── -->
+        <div id="view-ratings" class="d-body">
+          <div class="score-block">
+            <span class="score-n" id="d-score"></span>
+            <span class="score-d">/10</span>
+          </div>
+          <div class="score-meta" id="d-meta"></div>
+          <div class="bars" id="d-bars"></div>
+          <div class="rev-head">Individual ratings</div>
+          <div id="d-reviews"></div>
+        </div>
+
+        <!-- ── Add rating tab ── -->
+        <div id="view-add" class="form-body" style="display:none;">
+
+          <div class="field">
+            <div class="field-label">Your name</div>
+            <input class="text-input" id="f-author" type="text" placeholder="e.g. nic" autocomplete="off"/>
+          </div>
+
+          <div class="form-section-head">Scores</div>
+
+          <!-- Taste -->
+          <div class="field">
+            <div class="field-label">
+              Taste
+              <span class="score-preview" id="prev-taste">5</span>
+            </div>
+            <input class="score-slider" id="sl-taste" type="range" min="0" max="10" step="0.1" value="5"
+              oninput="updateSlider('taste',this.value)"/>
+          </div>
+
+          <!-- Pressure -->
+          <div class="field">
+            <div class="field-label">
+              Pressure
+              <span class="score-preview" id="prev-pressure">5</span>
+            </div>
+            <input class="score-slider" id="sl-pressure" type="range" min="0" max="10" step="0.1" value="5"
+              oninput="updateSlider('pressure',this.value)"/>
+          </div>
+
+          <!-- Temperature -->
+          <div class="field">
+            <div class="field-label">
+              Temperature
+              <span class="score-preview" id="prev-temp">5</span>
+            </div>
+            <input class="score-slider" id="sl-temp" type="range" min="0" max="10" step="0.1" value="5"
+              oninput="updateSlider('temp',this.value)"/>
+          </div>
+
+          <!-- Bottle fill speed — dual input -->
+          <div class="field">
+            <div class="field-label">Bottle fill speed</div>
+            <div class="fill-time-group">
+              <div class="fill-time-input-wrap">
+                <span class="fill-sub-label">Time (stopwatch)</span>
+                <input class="time-input" id="f-filltime" type="text" placeholder="e.g. 12.4s" autocomplete="off"/>
+              </div>
+              <div class="fill-time-input-wrap">
+                <span class="fill-sub-label">Score (0–10) <span id="prev-fillSpeed" style="color:var(--text); font-weight:500">5</span></span>
+                <input class="score-slider" id="sl-fillSpeed" type="range" min="0" max="10" step="0.1" value="5"
+                  oninput="updateSlider('fillSpeed',this.value)" style="margin-top:6px"/>
+              </div>
+            </div>
+          </div>
+
+          <!-- Reliability -->
+          <div class="field">
+            <div class="field-label">
+              Reliability
+              <span class="score-preview" id="prev-reliability">5</span>
+            </div>
+            <input class="score-slider" id="sl-reliability" type="range" min="0" max="10" step="0.1" value="5"
+              oninput="updateSlider('reliability',this.value)"/>
+          </div>
+
+          <!-- Cleanliness -->
+          <div class="field">
+            <div class="field-label">
+              Cleanliness
+              <span class="score-preview" id="prev-cleanliness">5</span>
+            </div>
+            <input class="score-slider" id="sl-cleanliness" type="range" min="0" max="10" step="0.1" value="5"
+              oninput="updateSlider('cleanliness',this.value)"/>
+          </div>
+
+          <!-- Accessibility -->
+          <div class="field">
+            <div class="field-label">
+              Accessibility
+              <span class="score-preview" id="prev-access">5</span>
+            </div>
+            <input class="score-slider" id="sl-access" type="range" min="0" max="10" step="0.1" value="5"
+              oninput="updateSlider('access',this.value)"/>
+          </div>
+
+          <div class="form-section-head" style="margin-top:8px;">Note <span style="color:var(--text3);font-size:9px;letter-spacing:0">(optional)</span></div>
+          <div class="field" style="margin-bottom:0">
+            <textarea class="text-input" id="f-note" rows="2" placeholder="Any comments…" style="resize:vertical; font-family:var(--sans)"></textarea>
+          </div>
+
+          <button class="submit-btn" onclick="submitRating()">Submit rating</button>
+
+          <div class="submit-success" id="submit-success">
+            <div class="ss-check">✓</div>
+            Rating added. Thank you!
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════
+const CATEGORIES = [
+  { key: 'taste',       label: 'Taste' },
+  { key: 'pressure',    label: 'Pressure' },
+  { key: 'temp',        label: 'Temperature' },
+  { key: 'fillSpeed',   label: 'Bottle fill speed' },
+  { key: 'reliability', label: 'Reliability' },
+  { key: 'cleanliness', label: 'Cleanliness' },
+  { key: 'access',      label: 'Accessibility' },
+];
+
+const FOUNTAINS = [
+  {
+    id: 'f1', name: 'Main Entrance Hall', location: 'Near rooms 160–165, B-wing',
+    floor: 1, x: 30, y: 48,
+    ratings: [
+      { author: 'nic',  scores: { taste:8, pressure:9, temp:9, fillSpeed:8, reliability:9, cleanliness:8, access:9 }, fillTime: '11.2s', note: 'coldest water in the building' },
+      { author: 'alex', scores: { taste:7, pressure:8, temp:8, fillSpeed:7, reliability:8, cleanliness:7, access:8 }, fillTime: '13.8s', note: 'solid, always works' },
+      { author: 'sam',  scores: { taste:9, pressure:10,temp:9, fillSpeed:9, reliability:9, cleanliness:9, access:9 }, fillTime: '10.1s', note: 'the GOAT fountain no contest' },
+    ]
+  },
+  {
+    id: 'f2', name: 'Gym Lobby', location: 'Outside gym, B10 area',
+    floor: 1, x: 18, y: 73,
+    ratings: [
+      { author: 'nic',  scores: { taste:5, pressure:6, temp:4, fillSpeed:5, reliability:6, cleanliness:4, access:7 }, fillTime: '18.5s', note: 'lukewarm, disappointing' },
+      { author: 'alex', scores: { taste:4, pressure:5, temp:3, fillSpeed:4, reliability:5, cleanliness:5, access:7 }, fillTime: '20.0s', note: 'never cold enough after gym' },
+    ]
+  },
+  {
+    id: 'f3', name: 'Performing Arts Wing', location: 'Near rooms 170–173, C-wing',
+    floor: 1, x: 50, y: 37,
+    ratings: [
+      { author: 'nic',  scores: { taste:6, pressure:7, temp:7, fillSpeed:6, reliability:5, cleanliness:7, access:6 }, fillTime: '16.0s', note: 'good but breaks a lot' },
+      { author: 'maya', scores: { taste:7, pressure:6, temp:8, fillSpeed:5, reliability:4, cleanliness:6, access:5 }, fillTime: '19.2s', note: 'out of order at least once a week' },
+      { author: 'sam',  scores: { taste:6, pressure:7, temp:7, fillSpeed:7, reliability:6, cleanliness:7, access:6 }, fillTime: '15.4s', note: 'decent when it works' },
+    ]
+  },
+  {
+    id: 'f4', name: 'Science Wing Corridor', location: 'Near rooms 108–116, D-wing',
+    floor: 1, x: 73, y: 55,
+    ratings: [
+      { author: 'nic',  scores: { taste:9, pressure:7, temp:10,fillSpeed:8, reliability:9, cleanliness:10,access:8 }, fillTime: '12.0s', note: 'filtered water, always ice cold' },
+      { author: 'alex', scores: { taste:9, pressure:8, temp:9, fillSpeed:8, reliability:10,cleanliness:10,access:9 }, fillTime: '12.3s', note: 'best cleanliness for sure' },
+      { author: 'maya', scores: { taste:8, pressure:7, temp:10,fillSpeed:7, reliability:9, cleanliness:9, access:8 }, fillTime: '13.9s', note: 'love the bottle filler here' },
+    ]
+  },
+  {
+    id: 'f5', name: '100s Hallway', location: 'Rooms 101–107 corridor, S-6 area',
+    floor: 1, x: 44, y: 62,
+    ratings: [
+      { author: 'sam',  scores: { taste:3, pressure:4, temp:5, fillSpeed:3, reliability:7, cleanliness:3, access:8 }, fillTime: '24.1s', note: 'tastes like the pipes are old' },
+      { author: 'alex', scores: { taste:2, pressure:3, temp:4, fillSpeed:3, reliability:6, cleanliness:4, access:8 }, fillTime: '25.8s', note: 'avoid if possible' },
+    ]
+  },
+  {
+    id: 'f6', name: '120s Wing', location: 'Near rooms 121–127, lower B-wing',
+    floor: 1, x: 27, y: 83,
+    ratings: [
+      { author: 'nic',  scores: { taste:7, pressure:8, temp:8, fillSpeed:7, reliability:8, cleanliness:8, access:7 }, fillTime: '14.5s', note: 'reliable, no complaints' },
+      { author: 'maya', scores: { taste:6, pressure:7, temp:7, fillSpeed:6, reliability:8, cleanliness:7, access:7 }, fillTime: '16.2s', note: 'pretty average fountain' },
+    ]
+  },
+  // ── Level 2 fountains (add your real coords with tools/grid2.html) ──
+  {
+    id: 'f2a', name: 'Level 2 Placeholder A', location: 'Update with real location',
+    floor: 2, x: 40, y: 45,
+    ratings: []
+  },
+  {
+    id: 'f2b', name: 'Level 2 Placeholder B', location: 'Update with real location',
+    floor: 2, x: 65, y: 60,
+    ratings: []
+  },
+];
+
+// ══════════════════════════════════════════════
+//  Helpers
+// ══════════════════════════════════════════════
+function avg(arr) { return arr.reduce((a,b)=>a+b,0)/arr.length; }
+
+function fountainAvgs(f) {
+  const ca = {};
+  CATEGORIES.forEach(c => { ca[c.key] = avg(f.ratings.map(r=>r.scores[c.key])); });
+  return { catAvgs: ca, overall: avg(Object.values(ca)) };
+}
+
+function scoreColor(s) {
+  const t = Math.max(0, Math.min(10, s)) / 10;
+  if (t < 0.5) {
+    const u = t * 2;
+    return `rgb(${Math.round(155+u*(249-155))},${Math.round(28+u*(115-28))},${Math.round(28+u*(22-28))})`;
+  } else {
+    const u = (t-0.5)*2;
+    return `rgb(${Math.round(249+u*(21-249))},${Math.round(115+u*(128-115))},${Math.round(22+u*(61-22))})`;
+  }
+}
+
+// Average fill times for display
+function avgFillTime(f) {
+  const times = f.ratings
+    .map(r => r.fillTime)
+    .filter(Boolean)
+    .map(t => parseFloat(t))
+    .filter(n => !isNaN(n));
+  if (!times.length) return null;
+  return (avg(times)).toFixed(1) + 's';
+}
+
+// ══════════════════════════════════════════════
+//  Floor state
+// ══════════════════════════════════════════════
+let activeFloor = 1;
+
+function switchFloor(n) {
+  if (activeFloor === n) return;
+  activeFloor = n;
+  document.getElementById('fbtn-1').classList.toggle('active', n===1);
+  document.getElementById('fbtn-2').classList.toggle('active', n===2);
+  document.getElementById('floorplan-img').style.display  = n===1 ? '' : 'none';
+  document.getElementById('floorplan-img2').style.display = n===2 ? '' : 'none';
+  closeDetail();
+  renderDots();
+  const total = FOUNTAINS.filter(f=>f.floor===n).length;
+  document.getElementById('f-count').textContent = `${total} fountain${total!==1?'s':''}`;
+}
+
+
+function getImgRect() {
+  const c = document.getElementById('map-container');
+  const cw = c.clientWidth, ch = c.clientHeight;
+  const imgEl = activeFloor === 1
+    ? document.getElementById('floorplan-img')
+    : document.getElementById('floorplan-img2');
+  const natW = imgEl.naturalWidth  || 1240;
+  const natH = imgEl.naturalHeight || 956;
+  const ratio = natW/natH, cr = cw/ch;
+  let iw, ih;
+  if (cr > ratio) { ih = ch; iw = ih*ratio; } else { iw = cw; ih = iw/ratio; }
+  return { x: (cw-iw)/2, y: (ch-ih)/2, w: iw, h: ih };
+}
+
+// ══════════════════════════════════════════════
+//  Render dots
+// ══════════════════════════════════════════════
+function renderDots() {
+  const svg = document.getElementById('dots-svg');
+  svg.innerHTML = '';
+  const r = getImgRect();
+  FOUNTAINS.filter(f => f.floor === activeFloor).forEach(f => {
+    const { overall } = fountainAvgs(f);
+    const col = scoreColor(overall);
+    const cx = r.x + (f.x/100)*r.w;
+    const cy = r.y + (f.y/100)*r.h;
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','f-dot'); g.setAttribute('data-id',f.id);
+    const ring = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    ring.setAttribute('class','f-ring');
+    ring.setAttribute('cx',cx); ring.setAttribute('cy',cy); ring.setAttribute('r','17');
+    ring.setAttribute('stroke',col);
+    const core = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    core.setAttribute('class','f-core');
+    core.setAttribute('cx',cx); core.setAttribute('cy',cy); core.setAttribute('r','8');
+    core.setAttribute('fill',col);
+    g.appendChild(ring); g.appendChild(core);
+    g.addEventListener('mouseenter', e=>showTip(e,f));
+    g.addEventListener('mousemove', moveTip);
+    g.addEventListener('mouseleave', hideTip);
+    g.addEventListener('click', ()=>openDetail(f));
+    svg.appendChild(g);
+  });
+}
+
+// ══════════════════════════════════════════════
+//  Tooltip
+// ══════════════════════════════════════════════
+const tip = document.getElementById('tooltip');
+function showTip(e, f) {
+  const {catAvgs, overall} = fountainAvgs(f);
+  tip.innerHTML = `
+    <div class="tt-name">${f.name}</div>
+    ${CATEGORIES.map(c=>`<div class="tt-row"><span>${c.label}</span><span class="v">${catAvgs[c.key].toFixed(1)}</span></div>`).join('')}
+    <div class="tt-div"></div>
+    <div class="tt-overall"><span>Overall</span><span style="color:${scoreColor(overall)}">${overall.toFixed(1)}</span></div>
+    <div class="tt-hint">click to expand →</div>
+  `;
+  tip.style.display = 'block'; moveTip(e);
+}
+function moveTip(e) {
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = e.clientX+16, y = e.clientY-10;
+  if (x+tw > window.innerWidth-8) x = e.clientX-tw-16;
+  if (y+th > window.innerHeight-8) y = e.clientY-th+10;
+  tip.style.left = x+'px'; tip.style.top = y+'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+
+// ══════════════════════════════════════════════
+//  Detail panel
+// ══════════════════════════════════════════════
+let activeFountain = null;
+
+function openDetail(f) {
+  hideTip();
+  activeFountain = f;
+  document.querySelectorAll('.f-dot').forEach(g=>g.classList.remove('active'));
+  document.querySelector(`.f-dot[data-id="${f.id}"]`).classList.add('active');
+  document.getElementById('d-name').textContent = f.name;
+  document.getElementById('d-loc').textContent = f.location;
+  switchTab('ratings');
+  renderRatings(f);
+  document.getElementById('no-sel').style.display = 'none';
+  document.getElementById('detail-content').style.display = 'flex';
+  document.getElementById('detail').classList.add('open');
+}
+
+function renderRatings(f) {
+  const {catAvgs, overall} = fountainAvgs(f);
+  const sn = document.getElementById('d-score');
+  sn.textContent = overall.toFixed(1);
+  sn.style.color = scoreColor(overall);
+  document.getElementById('d-meta').textContent = `${f.ratings.length} rating${f.ratings.length!==1?'s':''}`;
+
+  const ft = avgFillTime(f);
+  document.getElementById('d-bars').innerHTML = CATEGORIES.map(c=>{
+    const v = catAvgs[c.key];
+    const isFill = c.key === 'fillSpeed';
+    return `<div class="bar-row">
+      <div class="bar-meta"><span class="bn">${c.label}</span><span class="bv" style="color:${scoreColor(v)}">${v.toFixed(1)}</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(v/10)*100}%;background:${scoreColor(v)}"></div></div>
+      ${isFill && ft ? `<div class="fill-time-avg">avg fill time: ${ft}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('d-reviews').innerHTML = f.ratings.map(r=>{
+    const ro = avg(Object.values(r.scores));
+    return `<div class="review">
+      <div class="r-top">
+        <span class="r-author">${r.author}</span>
+        <span class="r-score" style="color:${scoreColor(ro)}">${ro.toFixed(1)}</span>
+      </div>
+      <div class="r-chips">
+        ${CATEGORIES.map(c=>`<span class="r-chip">${c.label.slice(0,4).toLowerCase()} ${r.scores[c.key]}</span>`).join('')}
+        ${r.fillTime ? `<span class="r-chip fill-chip">⏱ ${r.fillTime}</span>` : ''}
+      </div>
+      ${r.note?`<div class="r-note">"${r.note}"</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function closeDetail() {
+  document.getElementById('detail').classList.remove('open');
+  document.querySelectorAll('.f-dot').forEach(g=>g.classList.remove('active'));
+  activeFountain = null;
+  setTimeout(()=>{
+    document.getElementById('detail-content').style.display = 'none';
+    document.getElementById('no-sel').style.display = 'flex';
+  }, 330);
+}
+
+// ══════════════════════════════════════════════
+//  Tabs
+// ══════════════════════════════════════════════
+function switchTab(tab) {
+  document.getElementById('tab-ratings').classList.toggle('active', tab==='ratings');
+  document.getElementById('tab-add').classList.toggle('active', tab==='add');
+  document.getElementById('view-ratings').style.display = tab==='ratings' ? 'block' : 'none';
+  document.getElementById('view-add').style.display = tab==='add' ? 'block' : 'none';
+  if (tab === 'add') {
+    resetForm();
+  }
+}
+
+// ══════════════════════════════════════════════
+//  Form — sliders
+// ══════════════════════════════════════════════
+const SLIDER_KEYS = ['taste','pressure','temp','fillSpeed','reliability','cleanliness','access'];
+
+function updateSlider(key, val) {
+  const el = document.getElementById('prev-' + key);
+  if (el) {
+    el.textContent = parseFloat(val).toFixed(1);
+    el.style.color = scoreColor(+val);
+  }
+}
+
+function resetForm() {
+  SLIDER_KEYS.forEach(k => {
+    const sl = document.getElementById('sl-' + k);
+    if (sl) { sl.value = 5; updateSlider(k, '5'); }
+  });
+  document.getElementById('f-author').value = '';
+  document.getElementById('f-filltime').value = '';
+  document.getElementById('f-note').value = '';
+  document.getElementById('submit-success').style.display = 'none';
+  document.querySelector('.submit-btn').style.display = 'block';
+}
+
+// ══════════════════════════════════════════════
+//  Submit rating
+// ══════════════════════════════════════════════
+function submitRating() {
+  if (!activeFountain) return;
+
+  const author = document.getElementById('f-author').value.trim() || 'anonymous';
+  const fillTime = document.getElementById('f-filltime').value.trim() || null;
+  const note = document.getElementById('f-note').value.trim() || null;
+
+  const scores = {};
+  SLIDER_KEYS.forEach(k => {
+    scores[k] = +document.getElementById('sl-' + k).value;
+  });
+
+  activeFountain.ratings.push({ author, scores, fillTime, note });
+
+  // Show success, then switch back to ratings view after a beat
+  document.querySelector('.submit-btn').style.display = 'none';
+  document.getElementById('submit-success').style.display = 'block';
+
+  setTimeout(() => {
+    renderRatings(activeFountain);
+    renderDots(); // refresh dot color
+    switchTab('ratings');
+  }, 1200);
+}
+
+// ══════════════════════════════════════════════
+//  Init
+// ══════════════════════════════════════════════
+const f1count = FOUNTAINS.filter(f=>f.floor===1).length;
+document.getElementById('f-count').textContent = `${f1count} fountain${f1count!==1?'s':''}`;
+renderDots();
+window.addEventListener('resize', renderDots);
+</script>
+</body>
+</html>

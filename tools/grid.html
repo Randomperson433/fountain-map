@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Grid Tool — Find Fountain Coordinates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f7f6f3;
+  --white: #ffffff;
+  --border: #e0ddd6;
+  --border2: #ccc9c0;
+  --text: #1c1b18;
+  --text2: #5c5a53;
+  --text3: #9e9c94;
+  --accent: #2563eb;
+  --mono: 'DM Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); overflow: hidden; }
+
+header {
+  height: 48px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--white); flex-shrink: 0;
+}
+.h-title { font-family: var(--mono); font-size: 11px; color: var(--text2); letter-spacing: 0.1em; text-transform: uppercase; }
+.h-hint { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+
+.main { display: flex; height: calc(100vh - 48px); overflow: hidden; }
+
+/* Map area */
+.map-wrap {
+  flex: 1; position: relative; overflow: hidden; cursor: crosshair;
+  background: var(--white);
+}
+#fp-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; opacity: 0.65; user-select: none; pointer-events: none;
+}
+#grid-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* Crosshairs */
+#xhair-h, #xhair-v {
+  position: absolute; background: rgba(37,99,235,0.3);
+  pointer-events: none; z-index: 5; display: none;
+}
+#xhair-h { left: 0; right: 0; height: 1px; }
+#xhair-v { top: 0; bottom: 0; width: 1px; }
+#cursor-dot {
+  position: absolute; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent); border: 2px solid white;
+  transform: translate(-50%,-50%); pointer-events: none;
+  display: none; z-index: 10; box-shadow: 0 0 0 3px rgba(37,99,235,0.2);
+}
+
+/* Side panel */
+.panel {
+  width: 240px; border-left: 1px solid var(--border);
+  background: var(--white); display: flex; flex-direction: column;
+  overflow-y: auto; flex-shrink: 0;
+}
+.ps {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.ps-label {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.12em; color: var(--text3);
+  text-transform: uppercase; margin-bottom: 11px;
+}
+
+/* Live coord display */
+.coord-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0; }
+.coord-box {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px; padding: 9px 10px;
+}
+.ck { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-bottom: 3px; }
+.cv { font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--accent); }
+
+/* Clicked coord */
+.click-box {
+  background: #eff6ff; border: 1px solid #bfdbfe;
+  border-radius: 5px; padding: 11px 12px; font-size: 12px;
+  font-family: var(--mono); color: var(--text2); line-height: 1.6;
+  margin-bottom: 0;
+}
+.click-val { display: block; font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 1px; }
+.click-hint { font-size: 10px; color: var(--text3); }
+
+.copy-btn {
+  width: 100%; margin-top: 8px;
+  background: none; border: 1px solid var(--border2);
+  color: var(--text2); font-family: var(--mono);
+  font-size: 11px; padding: 7px; border-radius: 4px;
+  cursor: pointer; letter-spacing: 0.05em;
+  transition: border-color 0.15s, color 0.15s;
+}
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+.copy-btn.copied { border-color: #16a34a; color: #16a34a; }
+
+/* Grid controls */
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--mono); font-size: 11px; color: var(--text2); margin-bottom: 10px;
+}
+.toggle {
+  width: 32px; height: 18px;
+  background: var(--border2); border-radius: 9px;
+  position: relative; cursor: pointer; border: none;
+  transition: background 0.2s;
+}
+.toggle.on { background: var(--accent); }
+.toggle::after {
+  content: ''; position: absolute;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: white; top: 3px; left: 3px;
+  transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(14px); }
+.density-row {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11px; color: var(--text2);
+}
+.density-row input { flex: 1; accent-color: var(--accent); }
+.dv { color: var(--accent); min-width: 24px; font-family: var(--mono); font-size: 11px; }
+
+/* History */
+.hist-list { display: flex; flex-direction: column; gap: 5px; }
+.hist-item {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 6px 9px; font-size: 11px;
+  font-family: var(--mono);
+}
+.hist-xy { color: var(--text2); }
+.hist-xy span { color: var(--accent); }
+.hist-n { color: var(--text3); font-size: 10px; }
+.hist-cp {
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 12px; padding: 0 2px;
+  font-family: var(--mono);
+}
+.hist-cp:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span class="h-title">Coordinate grid tool</span>
+    <span style="font-family:var(--mono);font-size:10px;letter-spacing:0.08em;background:var(--text);color:white;padding:3px 9px;border-radius:3px;">Level 1</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <a href="grid2.html" style="font-family:var(--mono);font-size:11px;color:var(--text3);text-decoration:none;padding:3px 8px;border-radius:3px;border:1px solid var(--border2);">Level 2 →</a>
+  </div>
+  <span class="h-hint">hover to preview · click to lock coordinate · paste into FOUNTAINS array in map.html</span>
+</header>
+
+<div class="main">
+  <div class="map-wrap" id="map-wrap">
+    <img src="../img/floorplan.jpg" id="fp-img" alt="floor plan"/>
+    <svg id="grid-svg"></svg>
+    <div id="xhair-h"></div>
+    <div id="xhair-v"></div>
+    <div id="cursor-dot"></div>
+  </div>
+
+  <div class="panel">
+    <div class="ps">
+      <div class="ps-label">Live position</div>
+      <div class="coord-grid">
+        <div class="coord-box"><div class="ck">X %</div><div class="cv" id="lx">—</div></div>
+        <div class="coord-box"><div class="ck">Y %</div><div class="cv" id="ly">—</div></div>
+      </div>
+    </div>
+
+    <div class="ps">
+      <div class="ps-label">Last click</div>
+      <div class="click-box" id="click-box">
+        <span class="click-val">—</span>
+        <span class="click-hint">click the map to lock a point</span>
+      </div>
+      <button class="copy-btn" id="copy-btn" onclick="copyCoords()">copy as x: N, y: N</button>
+    </div>
+
+    <div class="ps">
+      <div class="ps-label">Grid</div>
+      <div class="toggle-row">
+        Show grid
+        <button class="toggle on" id="grid-toggle" onclick="toggleGrid()"></button>
+      </div>
+      <div class="density-row">
+        Density
+        <input type="range" id="density" min="5" max="20" value="10" step="5" oninput="updateGrid()"/>
+        <span class="dv" id="dv">10</span>
+      </div>
+    </div>
+
+    <div class="ps" style="flex:1; border-bottom:none;">
+      <div class="ps-label">Click history</div>
+      <div class="hist-list" id="history"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let showGrid = true;
+let cx = null, cy = null;
+const history = [];
+
+function getImgRect() {
+  const w = document.getElementById('map-wrap');
+  const cw = w.clientWidth, ch = w.clientHeight;
+  const natW = 1240, natH = 956, r = natW/natH, cr = cw/ch;
+  let iw, ih;
+  if (cr > r) { ih = ch; iw = ih*r; } else { iw = cw; ih = iw/r; }
+  return { x:(cw-iw)/2, y:(ch-ih)/2, w:iw, h:ih };
+}
+
+function toPct(px, py) {
+  const r = getImgRect();
+  return {
+    x: +Math.max(0,Math.min(100,((px-r.x)/r.w)*100)).toFixed(1),
+    y: +Math.max(0,Math.min(100,((py-r.y)/r.h)*100)).toFixed(1)
+  };
+}
+
+const xhH = document.getElementById('xhair-h');
+const xhV = document.getElementById('xhair-v');
+const dot  = document.getElementById('cursor-dot');
+const lx   = document.getElementById('lx');
+const ly   = document.getElementById('ly');
+
+document.getElementById('map-wrap').addEventListener('mousemove', e => {
+  const b = document.getElementById('map-wrap').getBoundingClientRect();
+  const mx = e.clientX-b.left, my = e.clientY-b.top;
+  const p = toPct(mx, my);
+  lx.textContent = p.x; ly.textContent = p.y;
+  xhH.style.display='block'; xhH.style.top=my+'px';
+  xhV.style.display='block'; xhV.style.left=mx+'px';
+  dot.style.display='block'; dot.style.left=mx+'px'; dot.style.top=my+'px';
+});
+
+document.getElementById('map-wrap').addEventListener('mouseleave', () => {
+  xhH.style.display=xhV.style.display=dot.style.display='none';
+  lx.textContent=ly.textContent='—';
+});
+
+document.getElementById('map-wrap').addEventListener('click', e => {
+  const b = document.getElementById('map-wrap').getBoundingClientRect();
+  const p = toPct(e.clientX-b.left, e.clientY-b.top);
+  cx = p.x; cy = p.y;
+  document.getElementById('click-box').innerHTML = `
+    <span class="click-val">x: ${cx}, y: ${cy}</span>
+    <span class="click-hint">paste into FOUNTAINS array in map.html</span>
+  `;
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = `copy as x: ${cx}, y: ${cy}`;
+  btn.classList.remove('copied');
+  history.unshift({x:cx,y:cy});
+  if (history.length>20) history.pop();
+  renderHistory();
+});
+
+function copyCoords() {
+  if (cx===null) return;
+  navigator.clipboard.writeText(`x: ${cx}, y: ${cy}`).then(()=>{
+    const btn = document.getElementById('copy-btn');
+    btn.textContent='✓ copied!'; btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent=`copy as x: ${cx}, y: ${cy}`; btn.classList.remove('copied'); },1400);
+  });
+}
+
+function renderHistory() {
+  document.getElementById('history').innerHTML = history.map((h,i)=>`
+    <div class="hist-item">
+      <span class="hist-xy">x:<span>${h.x}</span> y:<span>${h.y}</span></span>
+      <span class="hist-n">#${history.length-i}</span>
+      <button class="hist-cp" onclick="navigator.clipboard.writeText('x: ${h.x}, y: ${h.y}')" title="copy">⎘</button>
+    </div>
+  `).join('');
+}
+
+function drawGrid(d) {
+  const svg = document.getElementById('grid-svg');
+  if (!showGrid) { svg.innerHTML=''; return; }
+  const r = getImgRect();
+  const w = document.getElementById('map-wrap');
+  let html='';
+  for (let p=0; p<=100; p+=d) {
+    const x = r.x+(p/100)*r.w;
+    const maj = p%(d*5||25)===0;
+    html+=`<line x1="${x}" y1="${r.y}" x2="${x}" y2="${r.y+r.h}" stroke="rgba(37,99,235,${maj?.22:.08})" stroke-width="${maj?.8:.4}"/>`;
+    if (maj||d>=10) html+=`<text x="${x+2}" y="${r.y+11}" font-size="9" fill="rgba(37,99,235,0.45)" font-family="DM Mono,monospace">${p}</text>`;
+  }
+  for (let p=0; p<=100; p+=d) {
+    const y = r.y+(p/100)*r.h;
+    const maj = p%(d*5||25)===0;
+    html+=`<line x1="${r.x}" y1="${y}" x2="${r.x+r.w}" y2="${y}" stroke="rgba(37,99,235,${maj?.22:.08})" stroke-width="${maj?.8:.4}"/>`;
+    if (maj||d>=10) html+=`<text x="${r.x+3}" y="${y-2}" font-size="9" fill="rgba(37,99,235,0.45)" font-family="DM Mono,monospace">${p}</text>`;
+  }
+  html+=`<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="none" stroke="rgba(37,99,235,0.2)" stroke-width="1"/>`;
+  svg.innerHTML=html;
+}
+
+function toggleGrid() {
+  showGrid=!showGrid;
+  document.getElementById('grid-toggle').classList.toggle('on',showGrid);
+  drawGrid(+document.getElementById('density').value);
+}
+
+function updateGrid() {
+  const d = +document.getElementById('density').value;
+  document.getElementById('dv').textContent=d;
+  drawGrid(d);
+}
+
+drawGrid(10);
+window.addEventListener('resize',()=>drawGrid(+document.getElementById('density').value));
+</script>
+</body>
+</html>
