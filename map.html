@@ -236,7 +236,7 @@ nav {
               <div class="fill-time-input-wrap"><span class="fill-sub-label">Score (0-10) <span id="prev-fillSpeed" style="font-weight:500">5.0</span></span><input class="score-slider" id="sl-fillSpeed" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('fillSpeed',this.value)" style="margin-top:6px"/></div>
             </div>
           </div>
-          <div class="field"><div class="field-label">Reliability<span class="score-preview" id="prev-reliability">5.0</span></div><input class="score-slider" id="sl-reliability" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('reliability',this.value)"/></div>
+          <div class="field"><div class="field-label">Consistency<span class="score-preview" id="prev-consistency">5.0</span></div><input class="score-slider" id="sl-consistency" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('consistency',this.value)"/></div>
           <div class="field"><div class="field-label">Cleanliness<span class="score-preview" id="prev-cleanliness">5.0</span></div><input class="score-slider" id="sl-cleanliness" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('cleanliness',this.value)"/></div>
           <div class="field"><div class="field-label">Accessibility<span class="score-preview" id="prev-access">5.0</span></div><input class="score-slider" id="sl-access" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('access',this.value)"/></div>
           <div class="form-section-head" style="margin-top:8px;">Note <span style="color:var(--text3);font-size:9px;letter-spacing:0">(optional)</span></div>
@@ -279,7 +279,7 @@ var CATEGORIES = [
   { key: 'pressure',    label: 'Pressure' },
   { key: 'temp',        label: 'Temperature' },
   { key: 'fillSpeed',   label: 'Bottle fill speed' },
-  { key: 'reliability', label: 'Reliability' },
+  { key: 'consistency', label: 'Consistency' },
   { key: 'cleanliness', label: 'Cleanliness' },
   { key: 'access',      label: 'Accessibility' }
 ];
@@ -288,56 +288,43 @@ var FOUNTAINS = [
   {
     id: 'f1', name: 'Main Entrance Hall', location: 'Near rooms 160-165, B-wing',
     floor: 1, x: 30, y: 48,
-    ratings: [
-      { author: 'nic',  scores: { taste:8, pressure:9, temp:9, fillSpeed:8, reliability:9, cleanliness:8, access:9 }, fillTime: '11.2s', note: 'coldest water in the building' },
-      { author: 'alex', scores: { taste:7, pressure:8, temp:8, fillSpeed:7, reliability:8, cleanliness:7, access:8 }, fillTime: '13.8s', note: 'solid, always works' },
-      { author: 'sam',  scores: { taste:9, pressure:10,temp:9, fillSpeed:9, reliability:9, cleanliness:9, access:9 }, fillTime: '10.1s', note: 'the GOAT fountain no contest' }
-    ]
+    ratings: []
   },
   {
     id: 'f2', name: 'Gym Lobby', location: 'Outside gym, B10 area',
     floor: 1, x: 18, y: 73,
-    ratings: [
-      { author: 'nic',  scores: { taste:5, pressure:6, temp:4, fillSpeed:5, reliability:6, cleanliness:4, access:7 }, fillTime: '18.5s', note: 'lukewarm, disappointing' },
-      { author: 'alex', scores: { taste:4, pressure:5, temp:3, fillSpeed:4, reliability:5, cleanliness:5, access:7 }, fillTime: '20.0s', note: 'never cold enough after gym' }
-    ]
+    ratings: []
   },
   {
     id: 'f3', name: 'Performing Arts Wing', location: 'Near rooms 170-173, C-wing',
     floor: 1, x: 50, y: 37,
-    ratings: [
-      { author: 'nic',  scores: { taste:6, pressure:7, temp:7, fillSpeed:6, reliability:5, cleanliness:7, access:6 }, fillTime: '16.0s', note: 'good but breaks a lot' },
-      { author: 'maya', scores: { taste:7, pressure:6, temp:8, fillSpeed:5, reliability:4, cleanliness:6, access:5 }, fillTime: '19.2s', note: 'out of order at least once a week' },
-      { author: 'sam',  scores: { taste:6, pressure:7, temp:7, fillSpeed:7, reliability:6, cleanliness:7, access:6 }, fillTime: '15.4s', note: 'decent when it works' }
-    ]
+    ratings: []
   },
   {
     id: 'f4', name: 'Science Wing Corridor', location: 'Near rooms 108-116, D-wing',
     floor: 1, x: 73, y: 55,
-    ratings: [
-      { author: 'nic',  scores: { taste:9, pressure:7, temp:10,fillSpeed:8, reliability:9, cleanliness:10,access:8 }, fillTime: '12.0s', note: 'filtered water, always ice cold' },
-      { author: 'alex', scores: { taste:9, pressure:8, temp:9, fillSpeed:8, reliability:10,cleanliness:10,access:9 }, fillTime: '12.3s', note: 'best cleanliness for sure' },
-      { author: 'maya', scores: { taste:8, pressure:7, temp:10,fillSpeed:7, reliability:9, cleanliness:9, access:8 }, fillTime: '13.9s', note: 'love the bottle filler here' }
-    ]
+    ratings: []
   },
   {
     id: 'f5', name: '100s Hallway', location: 'Rooms 101-107 corridor, S-6 area',
     floor: 1, x: 44, y: 62,
-    ratings: [
-      { author: 'sam',  scores: { taste:3, pressure:4, temp:5, fillSpeed:3, reliability:7, cleanliness:3, access:8 }, fillTime: '24.1s', note: 'tastes like the pipes are old' },
-      { author: 'alex', scores: { taste:2, pressure:3, temp:4, fillSpeed:3, reliability:6, cleanliness:4, access:8 }, fillTime: '25.8s', note: 'avoid if possible' }
-    ]
+    ratings: []
   },
   {
     id: 'f6', name: '120s Wing', location: 'Near rooms 121-127, lower B-wing',
     floor: 1, x: 27, y: 83,
-    ratings: [
-      { author: 'nic',  scores: { taste:7, pressure:8, temp:8, fillSpeed:7, reliability:8, cleanliness:8, access:7 }, fillTime: '14.5s', note: 'reliable, no complaints' },
-      { author: 'maya', scores: { taste:6, pressure:7, temp:7, fillSpeed:6, reliability:8, cleanliness:7, access:7 }, fillTime: '16.2s', note: 'pretty average fountain' }
-    ]
+    ratings: []
   },
-  { id: 'f2a', name: 'Level 2 Placeholder A', location: 'Update with real location', floor: 2, x: 40, y: 45, ratings: [] },
-  { id: 'f2b', name: 'Level 2 Placeholder B', location: 'Update with real location', floor: 2, x: 65, y: 60, ratings: [] }
+  { 
+    id: 'f2a', name: 'Level 2 Placeholder A', location: 'Update with real location', 
+    floor: 2, x: 40, y: 45, 
+    ratings: [] 
+  },
+  { 
+    id: 'f2b', name: 'Level 2 Placeholder B', location: 'Update with real location', 
+    floor: 2, x: 65, y: 60, 
+    ratings: [] 
+  }
 ];
 
 // ── Helpers ──────────────────────────────────
@@ -473,7 +460,7 @@ function loadRatings() {
             pressure:    row.pressure,
             temp:        row.temp,
             fillSpeed:   row.fill_speed,
-            reliability: row.reliability,
+            consistency: row.consistency,
             cleanliness: row.cleanliness,
             access:      row.access
           }
@@ -855,7 +842,7 @@ function switchTab(tab) {
   if (tab === 'add') resetForm();
 }
 
-var SLIDER_KEYS = ['taste','pressure','temp','fillSpeed','reliability','cleanliness','access'];
+var SLIDER_KEYS = ['taste','pressure','temp','fillSpeed','consistency','cleanliness','access'];
 
 function updateSlider(key, val) {
   var el = document.getElementById('prev-' + key);
@@ -901,7 +888,7 @@ function submitRating() {
       pressure:    scores.pressure,
       temp:        scores.temp,
       fill_speed:  scores.fillSpeed,
-      reliability: scores.reliability,
+      consistency: scores.consistency,
       cleanliness: scores.cleanliness,
       access:      scores.access,
       fill_time:   fillTime,
