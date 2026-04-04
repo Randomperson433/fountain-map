@@ -53,7 +53,6 @@ nav {
 .leg-grad { width: 180px; height: 6px; border-radius: 3px; background: linear-gradient(to right, #9b1c1c, #dc2626, #f97316, #eab308, #22c55e, #15803d); }
 .leg-ticks { display: flex; justify-content: space-between; width: 180px; }
 .leg-tick { font-family: var(--mono); font-size: 9px; color: var(--text3); }
-.leg-lo, .leg-hi { font-family: var(--mono); font-size: 10px; color: var(--text3); }
 
 #map-container {
   flex: 1; position: relative; overflow: hidden;
@@ -62,20 +61,21 @@ nav {
 #map-container.panning { cursor: grabbing; }
 
 #map-world {
-  will-change: transform;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  position: absolute;
-  top: 0; left: 0;
+  position: absolute; top: 0; left: 0;
   transform-origin: 0 0;
+  will-change: transform;
 }
-#floor-img {
-  display: block;
-  width: 100%; height: 100%;
+
+/* Inlined SVG fills the world div — stays crisp at any zoom */
+#map-world svg {
+  display: block; width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+/* Raster fallback */
+#map-world img {
+  display: block; width: 100%; height: 100%;
   user-select: none; pointer-events: none;
-  -webkit-user-drag: none;
-  image-rendering: crisp-edges;
-  image-rendering: -webkit-optimize-contrast;
 }
 
 .f-dot { cursor: pointer; }
@@ -193,16 +193,12 @@ nav {
     </div>
 
     <div id="map-container">
-      <div id="map-world">
-        <img id="floor-img" src="" alt="Floor plan" draggable="false"/>
-      </div>
-      <!-- Dots live in screen-space so they never scale with pan/zoom -->
+      <div id="map-world"></div>
       <svg id="dots-svg" xmlns="http://www.w3.org/2000/svg"
            style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:5;"></svg>
-
       <div class="zoom-btns">
         <button class="zoom-btn" onclick="zoomBy(1.3)">+</button>
-        <button class="zoom-btn" onclick="zoomBy(0.77)">−</button>
+        <button class="zoom-btn" onclick="zoomBy(0.77)">-</button>
         <button class="zoom-btn reset" onclick="resetView()">fit</button>
       </div>
       <div class="zoom-hint">scroll to zoom · drag to pan</div>
@@ -212,7 +208,7 @@ nav {
   <div id="detail">
     <div id="detail-inner">
       <div class="no-sel" id="no-sel">
-        <div class="ns-icon">💧</div>
+        <div class="ns-icon">&#128167;</div>
         <p>Click a fountain dot<br/>to view its ratings</p>
       </div>
       <div id="detail-content" style="display:none; flex-direction:column; flex:1;">
@@ -245,16 +241,16 @@ nav {
             <div class="field-label">Bottle fill speed</div>
             <div class="fill-time-group">
               <div class="fill-time-input-wrap"><span class="fill-sub-label">Time (stopwatch)</span><input class="time-input" id="f-filltime" type="text" placeholder="e.g. 12.4s" autocomplete="off"/></div>
-              <div class="fill-time-input-wrap"><span class="fill-sub-label">Score (0–10) <span id="prev-fillSpeed" style="font-weight:500">5.0</span></span><input class="score-slider" id="sl-fillSpeed" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('fillSpeed',this.value)" style="margin-top:6px"/></div>
+              <div class="fill-time-input-wrap"><span class="fill-sub-label">Score (0-10) <span id="prev-fillSpeed" style="font-weight:500">5.0</span></span><input class="score-slider" id="sl-fillSpeed" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('fillSpeed',this.value)" style="margin-top:6px"/></div>
             </div>
           </div>
           <div class="field"><div class="field-label">Reliability<span class="score-preview" id="prev-reliability">5.0</span></div><input class="score-slider" id="sl-reliability" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('reliability',this.value)"/></div>
           <div class="field"><div class="field-label">Cleanliness<span class="score-preview" id="prev-cleanliness">5.0</span></div><input class="score-slider" id="sl-cleanliness" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('cleanliness',this.value)"/></div>
           <div class="field"><div class="field-label">Accessibility<span class="score-preview" id="prev-access">5.0</span></div><input class="score-slider" id="sl-access" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('access',this.value)"/></div>
           <div class="form-section-head" style="margin-top:8px;">Note <span style="color:var(--text3);font-size:9px;letter-spacing:0">(optional)</span></div>
-          <div class="field" style="margin-bottom:0"><textarea class="text-input" id="f-note" rows="2" placeholder="Any comments…" style="resize:vertical; font-family:var(--sans)"></textarea></div>
+          <div class="field" style="margin-bottom:0"><textarea class="text-input" id="f-note" rows="2" placeholder="Any comments..." style="resize:vertical; font-family:var(--sans)"></textarea></div>
           <button class="submit-btn" onclick="submitRating()">Submit rating</button>
-          <div class="submit-success" id="submit-success"><div class="ss-check">✓</div>Rating added. Thank you!</div>
+          <div class="submit-success" id="submit-success"><div class="ss-check">&#10003;</div>Rating added. Thank you!</div>
         </div>
       </div>
     </div>
@@ -263,35 +259,29 @@ nav {
 <div id="tooltip"></div>
 
 <script>
-// ══════════════════════════════════════════════════════════════
-//  FLOOR IMAGE PATHS
-//  Change these to point to your actual files.
-//  For SVGs: dimensions are read from the viewBox automatically.
-//  For raster images: naturalWidth/Height is used.
-// ══════════════════════════════════════════════════════════════
-const FLOOR_IMAGES = {
+var FLOOR_IMAGES = {
   1: { src: 'img/floorplan1.svg' },
-  2: { src: 'img/floorplan2.png' },
+  2: { src: 'img/floorplan2.png' }
 };
 
-const CATEGORIES = [
+var CATEGORIES = [
   { key: 'taste',       label: 'Taste' },
   { key: 'pressure',    label: 'Pressure' },
   { key: 'temp',        label: 'Temperature' },
   { key: 'fillSpeed',   label: 'Bottle fill speed' },
   { key: 'reliability', label: 'Reliability' },
   { key: 'cleanliness', label: 'Cleanliness' },
-  { key: 'access',      label: 'Accessibility' },
+  { key: 'access',      label: 'Accessibility' }
 ];
 
-const FOUNTAINS = [
+var FOUNTAINS = [
   {
-    id: 'f1', name: 'Main Entrance Hall', location: 'Near rooms 160–165, B-wing',
+    id: 'f1', name: 'Main Entrance Hall', location: 'Near rooms 160-165, B-wing',
     floor: 1, x: 30, y: 48,
     ratings: [
       { author: 'nic',  scores: { taste:8, pressure:9, temp:9, fillSpeed:8, reliability:9, cleanliness:8, access:9 }, fillTime: '11.2s', note: 'coldest water in the building' },
       { author: 'alex', scores: { taste:7, pressure:8, temp:8, fillSpeed:7, reliability:8, cleanliness:7, access:8 }, fillTime: '13.8s', note: 'solid, always works' },
-      { author: 'sam',  scores: { taste:9, pressure:10,temp:9, fillSpeed:9, reliability:9, cleanliness:9, access:9 }, fillTime: '10.1s', note: 'the GOAT fountain no contest' },
+      { author: 'sam',  scores: { taste:9, pressure:10,temp:9, fillSpeed:9, reliability:9, cleanliness:9, access:9 }, fillTime: '10.1s', note: 'the GOAT fountain no contest' }
     ]
   },
   {
@@ -299,402 +289,495 @@ const FOUNTAINS = [
     floor: 1, x: 18, y: 73,
     ratings: [
       { author: 'nic',  scores: { taste:5, pressure:6, temp:4, fillSpeed:5, reliability:6, cleanliness:4, access:7 }, fillTime: '18.5s', note: 'lukewarm, disappointing' },
-      { author: 'alex', scores: { taste:4, pressure:5, temp:3, fillSpeed:4, reliability:5, cleanliness:5, access:7 }, fillTime: '20.0s', note: 'never cold enough after gym' },
+      { author: 'alex', scores: { taste:4, pressure:5, temp:3, fillSpeed:4, reliability:5, cleanliness:5, access:7 }, fillTime: '20.0s', note: 'never cold enough after gym' }
     ]
   },
   {
-    id: 'f3', name: 'Performing Arts Wing', location: 'Near rooms 170–173, C-wing',
+    id: 'f3', name: 'Performing Arts Wing', location: 'Near rooms 170-173, C-wing',
     floor: 1, x: 50, y: 37,
     ratings: [
       { author: 'nic',  scores: { taste:6, pressure:7, temp:7, fillSpeed:6, reliability:5, cleanliness:7, access:6 }, fillTime: '16.0s', note: 'good but breaks a lot' },
       { author: 'maya', scores: { taste:7, pressure:6, temp:8, fillSpeed:5, reliability:4, cleanliness:6, access:5 }, fillTime: '19.2s', note: 'out of order at least once a week' },
-      { author: 'sam',  scores: { taste:6, pressure:7, temp:7, fillSpeed:7, reliability:6, cleanliness:7, access:6 }, fillTime: '15.4s', note: 'decent when it works' },
+      { author: 'sam',  scores: { taste:6, pressure:7, temp:7, fillSpeed:7, reliability:6, cleanliness:7, access:6 }, fillTime: '15.4s', note: 'decent when it works' }
     ]
   },
   {
-    id: 'f4', name: 'Science Wing Corridor', location: 'Near rooms 108–116, D-wing',
+    id: 'f4', name: 'Science Wing Corridor', location: 'Near rooms 108-116, D-wing',
     floor: 1, x: 73, y: 55,
     ratings: [
       { author: 'nic',  scores: { taste:9, pressure:7, temp:10,fillSpeed:8, reliability:9, cleanliness:10,access:8 }, fillTime: '12.0s', note: 'filtered water, always ice cold' },
       { author: 'alex', scores: { taste:9, pressure:8, temp:9, fillSpeed:8, reliability:10,cleanliness:10,access:9 }, fillTime: '12.3s', note: 'best cleanliness for sure' },
-      { author: 'maya', scores: { taste:8, pressure:7, temp:10,fillSpeed:7, reliability:9, cleanliness:9, access:8 }, fillTime: '13.9s', note: 'love the bottle filler here' },
+      { author: 'maya', scores: { taste:8, pressure:7, temp:10,fillSpeed:7, reliability:9, cleanliness:9, access:8 }, fillTime: '13.9s', note: 'love the bottle filler here' }
     ]
   },
   {
-    id: 'f5', name: '100s Hallway', location: 'Rooms 101–107 corridor, S-6 area',
+    id: 'f5', name: '100s Hallway', location: 'Rooms 101-107 corridor, S-6 area',
     floor: 1, x: 44, y: 62,
     ratings: [
       { author: 'sam',  scores: { taste:3, pressure:4, temp:5, fillSpeed:3, reliability:7, cleanliness:3, access:8 }, fillTime: '24.1s', note: 'tastes like the pipes are old' },
-      { author: 'alex', scores: { taste:2, pressure:3, temp:4, fillSpeed:3, reliability:6, cleanliness:4, access:8 }, fillTime: '25.8s', note: 'avoid if possible' },
+      { author: 'alex', scores: { taste:2, pressure:3, temp:4, fillSpeed:3, reliability:6, cleanliness:4, access:8 }, fillTime: '25.8s', note: 'avoid if possible' }
     ]
   },
   {
-    id: 'f6', name: '120s Wing', location: 'Near rooms 121–127, lower B-wing',
+    id: 'f6', name: '120s Wing', location: 'Near rooms 121-127, lower B-wing',
     floor: 1, x: 27, y: 83,
     ratings: [
       { author: 'nic',  scores: { taste:7, pressure:8, temp:8, fillSpeed:7, reliability:8, cleanliness:8, access:7 }, fillTime: '14.5s', note: 'reliable, no complaints' },
-      { author: 'maya', scores: { taste:6, pressure:7, temp:7, fillSpeed:6, reliability:8, cleanliness:7, access:7 }, fillTime: '16.2s', note: 'pretty average fountain' },
+      { author: 'maya', scores: { taste:6, pressure:7, temp:7, fillSpeed:6, reliability:8, cleanliness:7, access:7 }, fillTime: '16.2s', note: 'pretty average fountain' }
     ]
   },
   { id: 'f2a', name: 'Level 2 Placeholder A', location: 'Update with real location', floor: 2, x: 40, y: 45, ratings: [] },
-  { id: 'f2b', name: 'Level 2 Placeholder B', location: 'Update with real location', floor: 2, x: 65, y: 60, ratings: [] },
+  { id: 'f2b', name: 'Level 2 Placeholder B', location: 'Update with real location', floor: 2, x: 65, y: 60, ratings: [] }
 ];
 
-// ══════════════════════════════════════════════
-//  Helpers
-// ══════════════════════════════════════════════
-function avg(arr) { return arr.reduce((a,b)=>a+b,0)/arr.length; }
+// ── Helpers ──────────────────────────────────
+function avg(arr) {
+  return arr.reduce(function(a, b) { return a + b; }, 0) / arr.length;
+}
 
 function fountainAvgs(f) {
-  if (!f.ratings.length) return { catAvgs: Object.fromEntries(CATEGORIES.map(c=>[c.key,0])), overall: 0 };
-  const ca = {};
-  CATEGORIES.forEach(c => { ca[c.key] = avg(f.ratings.map(r=>r.scores[c.key])); });
-  return { catAvgs: ca, overall: avg(Object.values(ca)) };
+  if (!f.ratings.length) {
+    var z = {};
+    CATEGORIES.forEach(function(c) { z[c.key] = 0; });
+    return { catAvgs: z, overall: 0 };
+  }
+  var ca = {};
+  CATEGORIES.forEach(function(c) {
+    ca[c.key] = avg(f.ratings.map(function(r) { return r.scores[c.key]; }));
+  });
+  return { catAvgs: ca, overall: avg(CATEGORIES.map(function(c) { return ca[c.key]; })) };
 }
 
 function scoreColor(s) {
   if (s === 0) return '#9e9c94';
-  const t = Math.max(0, Math.min(10, s)) / 10;
+  var t = Math.max(0, Math.min(10, s)) / 10;
+  var r, g, b, u;
   if (t < 0.5) {
-    const u = t * 2;
-    return `rgb(${Math.round(155+u*(249-155))},${Math.round(28+u*(115-28))},${Math.round(28+u*(22-28))})`;
+    u = t * 2;
+    r = Math.round(155 + u * (249 - 155));
+    g = Math.round(28  + u * (115 - 28));
+    b = Math.round(28  + u * (22  - 28));
   } else {
-    const u = (t-0.5)*2;
-    return `rgb(${Math.round(249+u*(21-249))},${Math.round(115+u*(128-115))},${Math.round(22+u*(61-22))})`;
+    u = (t - 0.5) * 2;
+    r = Math.round(249 + u * (21  - 249));
+    g = Math.round(115 + u * (128 - 115));
+    b = Math.round(22  + u * (61  - 22));
   }
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
 
 function avgFillTime(f) {
-  const times = f.ratings.map(r=>r.fillTime).filter(Boolean).map(t=>parseFloat(t)).filter(n=>!isNaN(n));
-  if (!times.length) return null;
-  return avg(times).toFixed(1)+'s';
+  var times = f.ratings
+    .map(function(r) { return r.fillTime; })
+    .filter(Boolean)
+    .map(parseFloat)
+    .filter(function(n) { return !isNaN(n); });
+  return times.length ? avg(times).toFixed(1) + 's' : null;
 }
 
-// ══════════════════════════════════════════════
-//  Pan / Zoom
-// ══════════════════════════════════════════════
-let tx=0, ty=0, scale=1;
-let isDragging=false, dragStartX=0, dragStartY=0, dragStartTx=0, dragStartTy=0;
-
-// MIN_SCALE is computed dynamically in resetView() so it always matches
-// the "fit" zoom — user can zoom out 50% further and in up to 12×.
-let MIN_SCALE = 0.1;
-const MAX_SCALE = 12;
+// ── Pan / Zoom ────────────────────────────────
+var tx = 0, ty = 0, scale = 1;
+var isDragging = false, dragStartX = 0, dragStartY = 0, dragStartTx = 0, dragStartTy = 0;
+var MIN_SCALE = 0.1, MAX_SCALE = 12;
 
 function applyTransform() {
-  document.getElementById('map-world').style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+  document.getElementById('map-world').style.transform =
+    'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
   repositionDots();
 }
 
 function resetView() {
-  const dims = floorDims[activeFloor];
+  var dims = floorDims[activeFloor];
   if (!dims) return;
-  const iw = dims.w, ih = dims.h;
-
-  const world = document.getElementById('map-world');
-  world.style.width  = iw + 'px';
-  world.style.height = ih + 'px';
-
-  const c = document.getElementById('map-container');
-  const cw = c.clientWidth, ch = c.clientHeight;
-  const pad = 40;
-  const fitScale = Math.min((cw-pad*2)/iw, (ch-pad*2)/ih);
-
-  // Allow zooming out to 60% of fit, in to 12×
+  var world = document.getElementById('map-world');
+  world.style.width  = dims.w + 'px';
+  world.style.height = dims.h + 'px';
+  var c = document.getElementById('map-container');
+  var fitScale = Math.min((c.clientWidth - 80) / dims.w, (c.clientHeight - 80) / dims.h);
   MIN_SCALE = fitScale * 0.6;
-
   scale = fitScale;
-  tx = (cw - iw*scale) / 2;
-  ty = (ch - ih*scale) / 2;
+  tx = (c.clientWidth  - dims.w * scale) / 2;
+  ty = (c.clientHeight - dims.h * scale) / 2;
   applyTransform();
 }
 
 function zoomBy(factor, px, py) {
-  const c = document.getElementById('map-container');
-  px = px !== undefined ? px : c.clientWidth/2;
-  py = py !== undefined ? py : c.clientHeight/2;
-  const ns = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale*factor));
-  const sf = ns/scale;
-  tx = px - sf*(px-tx); ty = py - sf*(py-ty); scale = ns;
+  var c = document.getElementById('map-container');
+  px = (px !== undefined) ? px : c.clientWidth / 2;
+  py = (py !== undefined) ? py : c.clientHeight / 2;
+  var ns = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
+  var sf = ns / scale;
+  tx = px - sf * (px - tx);
+  ty = py - sf * (py - ty);
+  scale = ns;
   applyTransform();
 }
 
 function initPanZoom() {
-  const el = document.getElementById('map-container');
+  var el = document.getElementById('map-container');
 
-  el.addEventListener('wheel', e => {
+  el.addEventListener('wheel', function(e) {
     e.preventDefault();
-    const r = el.getBoundingClientRect();
-    // Use deltaY sign — negative = scroll up = zoom in
-    zoomBy(e.deltaY < 0 ? 1.12 : 0.89, e.clientX-r.left, e.clientY-r.top);
+    var r = el.getBoundingClientRect();
+    zoomBy(e.deltaY < 0 ? 1.12 : 0.89, e.clientX - r.left, e.clientY - r.top);
   }, { passive: false });
 
-  el.addEventListener('mousedown', e => {
+  el.addEventListener('mousedown', function(e) {
     if (e.target.closest('.f-dot') || e.target.closest('.zoom-btn')) return;
-    isDragging=true; dragStartX=e.clientX; dragStartY=e.clientY; dragStartTx=tx; dragStartTy=ty;
+    isDragging = true;
+    dragStartX = e.clientX; dragStartY = e.clientY;
+    dragStartTx = tx; dragStartTy = ty;
     el.classList.add('panning');
   });
-  window.addEventListener('mousemove', e => {
+  window.addEventListener('mousemove', function(e) {
     if (!isDragging) return;
-    tx = dragStartTx+(e.clientX-dragStartX); ty = dragStartTy+(e.clientY-dragStartY);
+    tx = dragStartTx + (e.clientX - dragStartX);
+    ty = dragStartTy + (e.clientY - dragStartY);
     applyTransform();
   });
-  window.addEventListener('mouseup', () => {
-    isDragging=false;
+  window.addEventListener('mouseup', function() {
+    isDragging = false;
     document.getElementById('map-container').classList.remove('panning');
   });
 
-  let lastDist=null;
-  el.addEventListener('touchstart', e=>{
-    if (e.touches.length===1) { isDragging=true; dragStartX=e.touches[0].clientX; dragStartY=e.touches[0].clientY; dragStartTx=tx; dragStartTy=ty; }
-    if (e.touches.length===2) { isDragging=false; lastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); }
-  },{passive:true});
-  el.addEventListener('touchmove', e=>{
-    e.preventDefault();
-    if (e.touches.length===1&&isDragging) { tx=dragStartTx+(e.touches[0].clientX-dragStartX); ty=dragStartTy+(e.touches[0].clientY-dragStartY); applyTransform(); }
-    if (e.touches.length===2&&lastDist) {
-      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-      const r=el.getBoundingClientRect();
-      zoomBy(d/lastDist,(e.touches[0].clientX+e.touches[1].clientX)/2-r.left,(e.touches[0].clientY+e.touches[1].clientY)/2-r.top);
-      lastDist=d;
+  var lastDist = null;
+  el.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      dragStartX = e.touches[0].clientX; dragStartY = e.touches[0].clientY;
+      dragStartTx = tx; dragStartTy = ty;
+    } else if (e.touches.length === 2) {
+      isDragging = false;
+      lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                            e.touches[0].clientY - e.touches[1].clientY);
     }
-  },{passive:false});
-  el.addEventListener('touchend',()=>{isDragging=false;lastDist=null;});
+  }, { passive: true });
+  el.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging) {
+      tx = dragStartTx + (e.touches[0].clientX - dragStartX);
+      ty = dragStartTy + (e.touches[0].clientY - dragStartY);
+      applyTransform();
+    } else if (e.touches.length === 2 && lastDist) {
+      var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
+                         e.touches[0].clientY - e.touches[1].clientY);
+      var r = el.getBoundingClientRect();
+      zoomBy(d / lastDist,
+        (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left,
+        (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top);
+      lastDist = d;
+    }
+  }, { passive: false });
+  el.addEventListener('touchend', function() { isDragging = false; lastDist = null; });
 }
 
-// ══════════════════════════════════════════════
-//  Load floor — SVG-aware dimension detection
-// ══════════════════════════════════════════════
-let activeFloor = 1;
-const floorDims = {};
+// ── Load floor ────────────────────────────────
+// SVGs are fetched and inlined as live DOM — crisp at any zoom, no rasterization.
+// Raster images fall back to a plain <img>.
+var activeFloor = 1;
+var floorDims   = {};
 
 function loadFloor(n) {
-  const img = document.getElementById('floor-img');
-  const cfg = FLOOR_IMAGES[n];
+  var cfg   = FLOOR_IMAGES[n];
+  var world = document.getElementById('map-world');
+  var isSVG = /\.svg$/i.test(cfg.src);
 
-  const onReady = (w, h) => {
-    floorDims[n] = { w, h };
-    const world = document.getElementById('map-world');
+  function onReady(w, h) {
+    floorDims[n] = { w: w, h: h };
     world.style.width  = w + 'px';
     world.style.height = h + 'px';
     resetView();
     renderDots();
-  };
+  }
 
-  const isSVG = /\.svg$/i.test(cfg.src);
+  if (isSVG) {
+    fetch(cfg.src)
+      .then(function(r) { return r.text(); })
+      .then(function(text) {
+        // Read viewBox dimensions
+        var vb = text.match(/viewBox=["']\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)/i);
+        var w  = vb ? parseFloat(vb[1]) : 1200;
+        var h  = vb ? parseFloat(vb[2]) : 900;
 
-  img.onload = () => {
-    if (isSVG) {
-      // SVGs report naturalWidth=0 in most browsers.
-      // Fetch the file and read the viewBox to get true dimensions.
-      fetch(cfg.src)
-        .then(r => r.text())
-        .then(text => {
-          // viewBox="minX minY width height"
-          const vb = text.match(/viewBox=["']\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)/i);
-          if (vb) {
-            onReady(parseFloat(vb[1]), parseFloat(vb[2]));
-          } else {
-            // Fall back to explicit width/height attributes on <svg>
-            const wm = text.match(/<svg[^>]+\bwidth=["']([\d.]+)/i);
-            const hm = text.match(/<svg[^>]+\bheight=["']([\d.]+)/i);
-            onReady(wm ? parseFloat(wm[1]) : 800, hm ? parseFloat(hm[1]) : 600);
-          }
-        })
-        .catch(() => onReady(800, 600));
-    } else {
-      onReady(img.naturalWidth, img.naturalHeight);
-    }
-  };
+        // Remove fixed width/height from the root SVG tag so CSS can size it
+        text = text.replace(/(<svg[^>]*?)\s+width=["'][^"']*["']/i,  '$1');
+        text = text.replace(/(<svg[^>]*?)\s+height=["'][^"']*["']/i, '$1');
 
-  img.onerror = () => {
-    console.warn(cfg.src + ' not found');
-    onReady(800, 600);
-  };
+        // Inline the SVG directly — stays vector at all zoom levels
+        world.innerHTML = text;
 
-  img.src = cfg.src;
+        var inlineSvg = world.querySelector('svg');
+        if (inlineSvg) {
+          inlineSvg.style.width         = '100%';
+          inlineSvg.style.height        = '100%';
+          inlineSvg.style.display       = 'block';
+          inlineSvg.style.pointerEvents = 'none';
+        }
+
+        onReady(w, h);
+      })
+      .catch(function() { onReady(1200, 900); });
+  } else {
+    world.innerHTML = '';
+    var img = document.createElement('img');
+    img.src = cfg.src;
+    img.draggable = false;
+    img.onload  = function() { onReady(img.naturalWidth, img.naturalHeight); };
+    img.onerror = function() { onReady(1200, 900); };
+    world.appendChild(img);
+  }
 }
 
-// ══════════════════════════════════════════════
-//  Dots — placed in screen space, never scale
-// ══════════════════════════════════════════════
-const DOT_R  = 8;
-const RING_R = 14;
+// ── Dots ─────────────────────────────────────
+var DOT_R  = 8;
+var RING_R = 14;
 
 function fountainScreenPos(f) {
-  const dims = floorDims[activeFloor] || { w: 800, h: 600 };
+  var dims = floorDims[activeFloor] || { w: 800, h: 600 };
   return {
     cx: tx + (f.x / 100) * dims.w * scale,
-    cy: ty + (f.y / 100) * dims.h * scale,
+    cy: ty + (f.y / 100) * dims.h * scale
   };
 }
 
 function renderDots() {
-  const svg = document.getElementById('dots-svg');
+  var svg = document.getElementById('dots-svg');
   svg.innerHTML = '';
 
-  FOUNTAINS.filter(f => f.floor === activeFloor).forEach(f => {
-    const { overall } = fountainAvgs(f);
-    const col = scoreColor(overall);
-    const { cx, cy } = fountainScreenPos(f);
+  FOUNTAINS.filter(function(f) { return f.floor === activeFloor; }).forEach(function(f) {
+    var overall = fountainAvgs(f).overall;
+    var col     = scoreColor(overall);
+    var pos     = fountainScreenPos(f);
 
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.setAttribute('class', 'f-dot');
     g.setAttribute('data-id', f.id);
     g.style.pointerEvents = 'all';
 
-    const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    var ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     ring.setAttribute('class', 'f-ring');
-    ring.setAttribute('cx', cx); ring.setAttribute('cy', cy);
-    ring.setAttribute('r', RING_R); ring.setAttribute('stroke', col); ring.setAttribute('stroke-width', 2);
+    ring.setAttribute('cx', pos.cx);       ring.setAttribute('cy', pos.cy);
+    ring.setAttribute('r',  RING_R);       ring.setAttribute('stroke', col);
+    ring.setAttribute('stroke-width', 2);
 
-    const core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    var core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     core.setAttribute('class', 'f-core');
-    core.setAttribute('cx', cx); core.setAttribute('cy', cy);
-    core.setAttribute('r', DOT_R); core.setAttribute('fill', col);
-    core.setAttribute('stroke', 'white'); core.setAttribute('stroke-width', 1.5);
+    core.setAttribute('cx', pos.cx);       core.setAttribute('cy', pos.cy);
+    core.setAttribute('r',  DOT_R);        core.setAttribute('fill', col);
+    core.setAttribute('stroke', 'white');  core.setAttribute('stroke-width', 1.5);
 
-    g.appendChild(ring); g.appendChild(core);
-    g.addEventListener('mouseenter', e => showTip(e, f));
-    g.addEventListener('mousemove', moveTip);
+    g.appendChild(ring);
+    g.appendChild(core);
+
+    g.addEventListener('mouseenter', function(e) { showTip(e, f); });
+    g.addEventListener('mousemove',  moveTip);
     g.addEventListener('mouseleave', hideTip);
-    g.addEventListener('click', e => { e.stopPropagation(); openDetail(f); });
+    g.addEventListener('click', function(e) { e.stopPropagation(); openDetail(f); });
+
     svg.appendChild(g);
   });
 }
 
 function repositionDots() {
-  document.querySelectorAll('.f-dot').forEach(g => {
-    const f = FOUNTAINS.find(f => f.id === g.getAttribute('data-id'));
-    if (!f) return;
-    const { cx, cy } = fountainScreenPos(f);
-    g.querySelectorAll('circle').forEach(c => {
-      c.setAttribute('cx', cx);
-      c.setAttribute('cy', cy);
-    });
-  });
+  var dots = document.querySelectorAll('.f-dot');
+  for (var i = 0; i < dots.length; i++) {
+    var fid = dots[i].getAttribute('data-id');
+    var f   = null;
+    for (var j = 0; j < FOUNTAINS.length; j++) {
+      if (FOUNTAINS[j].id === fid) { f = FOUNTAINS[j]; break; }
+    }
+    if (!f) continue;
+    var pos     = fountainScreenPos(f);
+    var circles = dots[i].querySelectorAll('circle');
+    for (var k = 0; k < circles.length; k++) {
+      circles[k].setAttribute('cx', pos.cx);
+      circles[k].setAttribute('cy', pos.cy);
+    }
+  }
 }
 
-// ══════════════════════════════════════════════
-//  Floor switching
-// ══════════════════════════════════════════════
+// ── Floor switching ───────────────────────────
 function switchFloor(n) {
-  if (activeFloor===n) return;
-  activeFloor=n;
-  document.getElementById('fbtn-1').classList.toggle('active',n===1);
-  document.getElementById('fbtn-2').classList.toggle('active',n===2);
-  document.getElementById('nav-floor-tag').textContent = `Level ${n} · SHS`;
+  if (activeFloor === n) return;
+  activeFloor = n;
+  document.getElementById('fbtn-1').classList.toggle('active', n === 1);
+  document.getElementById('fbtn-2').classList.toggle('active', n === 2);
+  document.getElementById('nav-floor-tag').textContent = 'Level ' + n + ' · SHS';
   closeDetail();
   loadFloor(n);
-  const total=FOUNTAINS.filter(f=>f.floor===n).length;
-  document.getElementById('f-count').textContent=`${total} fountain${total!==1?'s':''}`;
+  var total = FOUNTAINS.filter(function(f) { return f.floor === n; }).length;
+  document.getElementById('f-count').textContent = total + ' fountain' + (total !== 1 ? 's' : '');
 }
 
-// ══════════════════════════════════════════════
-//  Tooltip
-// ══════════════════════════════════════════════
-const tip = document.getElementById('tooltip');
-function showTip(e,f) {
-  const {catAvgs,overall}=fountainAvgs(f);
-  const noR=!f.ratings.length;
-  tip.innerHTML=`<div class="tt-name">${f.name}</div>${noR?'<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">no ratings yet</div>':CATEGORIES.map(c=>`<div class="tt-row"><span>${c.label}</span><span class="v">${catAvgs[c.key].toFixed(1)}</span></div>`).join('')+`<div class="tt-div"></div><div class="tt-overall"><span>Overall</span><span style="color:${scoreColor(overall)}">${overall.toFixed(1)}</span></div>`}<div class="tt-hint">click to expand →</div>`;
-  tip.style.display='block'; moveTip(e);
+// ── Tooltip ───────────────────────────────────
+var tip = document.getElementById('tooltip');
+
+function showTip(e, f) {
+  var avgs = fountainAvgs(f);
+  var noR  = !f.ratings.length;
+  var html = '<div class="tt-name">' + f.name + '</div>';
+  if (noR) {
+    html += '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">no ratings yet</div>';
+  } else {
+    CATEGORIES.forEach(function(c) {
+      html += '<div class="tt-row"><span>' + c.label + '</span>';
+      html += '<span class="v">' + avgs.catAvgs[c.key].toFixed(1) + '</span></div>';
+    });
+    html += '<div class="tt-div"></div>';
+    html += '<div class="tt-overall"><span>Overall</span>';
+    html += '<span style="color:' + scoreColor(avgs.overall) + '">' + avgs.overall.toFixed(1) + '</span></div>';
+  }
+  html += '<div class="tt-hint">click to expand</div>';
+  tip.innerHTML = html;
+  tip.style.display = 'block';
+  moveTip(e);
 }
+
 function moveTip(e) {
-  const tw=tip.offsetWidth,th=tip.offsetHeight;
-  let x=e.clientX+16,y=e.clientY-10;
-  if(x+tw>window.innerWidth-8) x=e.clientX-tw-16;
-  if(y+th>window.innerHeight-8) y=e.clientY-th+10;
-  tip.style.left=x+'px'; tip.style.top=y+'px';
+  var tw = tip.offsetWidth, th = tip.offsetHeight;
+  var x  = e.clientX + 16,  y  = e.clientY - 10;
+  if (x + tw > window.innerWidth  - 8) x = e.clientX - tw - 16;
+  if (y + th > window.innerHeight - 8) y = e.clientY - th + 10;
+  tip.style.left = x + 'px';
+  tip.style.top  = y + 'px';
 }
-function hideTip() { tip.style.display='none'; }
 
-// ══════════════════════════════════════════════
-//  Detail panel
-// ══════════════════════════════════════════════
-let activeFountain=null;
+function hideTip() { tip.style.display = 'none'; }
+
+// ── Detail panel ──────────────────────────────
+var activeFountain = null;
+
 function openDetail(f) {
-  hideTip(); activeFountain=f;
-  document.querySelectorAll('.f-dot').forEach(g=>g.classList.remove('active'));
-  document.querySelector(`.f-dot[data-id="${f.id}"]`).classList.add('active');
-  document.getElementById('d-name').textContent=f.name;
-  document.getElementById('d-loc').textContent=f.location;
-  switchTab('ratings'); renderRatings(f);
-  document.getElementById('no-sel').style.display='none';
-  document.getElementById('detail-content').style.display='flex';
+  hideTip();
+  activeFountain = f;
+  var dots = document.querySelectorAll('.f-dot');
+  for (var i = 0; i < dots.length; i++) dots[i].classList.remove('active');
+  document.querySelector('.f-dot[data-id="' + f.id + '"]').classList.add('active');
+  document.getElementById('d-name').textContent = f.name;
+  document.getElementById('d-loc').textContent  = f.location;
+  switchTab('ratings');
+  renderRatings(f);
+  document.getElementById('no-sel').style.display         = 'none';
+  document.getElementById('detail-content').style.display = 'flex';
   document.getElementById('detail').classList.add('open');
 }
+
 function renderRatings(f) {
-  const {catAvgs,overall}=fountainAvgs(f);
-  const sn=document.getElementById('d-score');
-  if (!f.ratings.length) { sn.textContent='—'; sn.style.color='var(--text3)'; document.getElementById('d-meta').textContent='no ratings yet'; document.getElementById('d-bars').innerHTML=''; document.getElementById('d-reviews').innerHTML=''; return; }
-  sn.textContent=overall.toFixed(1); sn.style.color=scoreColor(overall);
-  document.getElementById('d-meta').textContent=`${f.ratings.length} rating${f.ratings.length!==1?'s':''}`;
-  const ft=avgFillTime(f);
-  document.getElementById('d-bars').innerHTML=CATEGORIES.map(c=>{
-    const v=catAvgs[c.key];
-    return `<div class="bar-row"><div class="bar-meta"><span class="bn">${c.label}</span><span class="bv" style="color:${scoreColor(v)}">${v.toFixed(1)}</span></div><div class="bar-track"><div class="bar-fill" style="width:${(v/10)*100}%;background:${scoreColor(v)}"></div></div>${c.key==='fillSpeed'&&ft?`<div class="fill-time-avg">avg fill time: ${ft}</div>`:''}</div>`;
-  }).join('');
-  document.getElementById('d-reviews').innerHTML=f.ratings.map(r=>{
-    const ro=avg(Object.values(r.scores));
-    return `<div class="review"><div class="r-top"><span class="r-author">${r.author}</span><span class="r-score" style="color:${scoreColor(ro)}">${ro.toFixed(1)}</span></div><div class="r-chips">${CATEGORIES.map(c=>`<span class="r-chip">${c.label.slice(0,4).toLowerCase()} ${r.scores[c.key]}</span>`).join('')}${r.fillTime?`<span class="r-chip fill-chip">⏱ ${r.fillTime}</span>`:''}</div>${r.note?`<div class="r-note">"${r.note}"</div>`:''}</div>`;
-  }).join('');
+  var avgs = fountainAvgs(f);
+  var sn   = document.getElementById('d-score');
+  if (!f.ratings.length) {
+    sn.textContent = '-';
+    sn.style.color = 'var(--text3)';
+    document.getElementById('d-meta').textContent    = 'no ratings yet';
+    document.getElementById('d-bars').innerHTML      = '';
+    document.getElementById('d-reviews').innerHTML   = '';
+    return;
+  }
+  sn.textContent = avgs.overall.toFixed(1);
+  sn.style.color = scoreColor(avgs.overall);
+  document.getElementById('d-meta').textContent =
+    f.ratings.length + ' rating' + (f.ratings.length !== 1 ? 's' : '');
+
+  var ft      = avgFillTime(f);
+  var barsHTML = '';
+  CATEGORIES.forEach(function(c) {
+    var v = avgs.catAvgs[c.key];
+    barsHTML += '<div class="bar-row">';
+    barsHTML += '<div class="bar-meta"><span class="bn">' + c.label + '</span>';
+    barsHTML += '<span class="bv" style="color:' + scoreColor(v) + '">' + v.toFixed(1) + '</span></div>';
+    barsHTML += '<div class="bar-track"><div class="bar-fill" style="width:' + ((v / 10) * 100) + '%;background:' + scoreColor(v) + '"></div></div>';
+    if (c.key === 'fillSpeed' && ft) {
+      barsHTML += '<div class="fill-time-avg">avg fill time: ' + ft + '</div>';
+    }
+    barsHTML += '</div>';
+  });
+  document.getElementById('d-bars').innerHTML = barsHTML;
+
+  var revHTML = '';
+  f.ratings.forEach(function(r) {
+    var ro = avg(CATEGORIES.map(function(c) { return r.scores[c.key]; }));
+    revHTML += '<div class="review">';
+    revHTML += '<div class="r-top"><span class="r-author">' + r.author + '</span>';
+    revHTML += '<span class="r-score" style="color:' + scoreColor(ro) + '">' + ro.toFixed(1) + '</span></div>';
+    revHTML += '<div class="r-chips">';
+    CATEGORIES.forEach(function(c) {
+      revHTML += '<span class="r-chip">' + c.label.slice(0,4).toLowerCase() + ' ' + r.scores[c.key] + '</span>';
+    });
+    if (r.fillTime) revHTML += '<span class="r-chip fill-chip">&#9201; ' + r.fillTime + '</span>';
+    revHTML += '</div>';
+    if (r.note) revHTML += '<div class="r-note">"' + r.note + '"</div>';
+    revHTML += '</div>';
+  });
+  document.getElementById('d-reviews').innerHTML = revHTML;
 }
+
 function closeDetail() {
   document.getElementById('detail').classList.remove('open');
-  document.querySelectorAll('.f-dot').forEach(g=>g.classList.remove('active'));
-  activeFountain=null;
-  setTimeout(()=>{ document.getElementById('detail-content').style.display='none'; document.getElementById('no-sel').style.display='flex'; },330);
+  var dots = document.querySelectorAll('.f-dot');
+  for (var i = 0; i < dots.length; i++) dots[i].classList.remove('active');
+  activeFountain = null;
+  setTimeout(function() {
+    document.getElementById('detail-content').style.display = 'none';
+    document.getElementById('no-sel').style.display         = 'flex';
+  }, 330);
 }
 
-// ══════════════════════════════════════════════
-//  Tabs + Form
-// ══════════════════════════════════════════════
+// ── Tabs + Form ───────────────────────────────
 function switchTab(tab) {
-  document.getElementById('tab-ratings').classList.toggle('active',tab==='ratings');
-  document.getElementById('tab-add').classList.toggle('active',tab==='add');
-  document.getElementById('view-ratings').style.display=tab==='ratings'?'block':'none';
-  document.getElementById('view-add').style.display=tab==='add'?'block':'none';
-  if(tab==='add') resetForm();
-}
-const SLIDER_KEYS=['taste','pressure','temp','fillSpeed','reliability','cleanliness','access'];
-function updateSlider(key,val) {
-  const el=document.getElementById('prev-'+key);
-  if(el){ el.textContent=parseFloat(val).toFixed(1); el.style.color=scoreColor(+val); }
-}
-function resetForm() {
-  SLIDER_KEYS.forEach(k=>{ const sl=document.getElementById('sl-'+k); if(sl){ sl.value=5; updateSlider(k,'5'); } });
-  document.getElementById('f-author').value='';
-  document.getElementById('f-filltime').value='';
-  document.getElementById('f-note').value='';
-  document.getElementById('submit-success').style.display='none';
-  document.querySelector('.submit-btn').style.display='block';
-}
-function submitRating() {
-  if(!activeFountain) return;
-  const author=document.getElementById('f-author').value.trim()||'anonymous';
-  const fillTime=document.getElementById('f-filltime').value.trim()||null;
-  const note=document.getElementById('f-note').value.trim()||null;
-  const scores={};
-  SLIDER_KEYS.forEach(k=>{ scores[k]=+document.getElementById('sl-'+k).value; });
-  activeFountain.ratings.push({author,scores,fillTime,note});
-  document.querySelector('.submit-btn').style.display='none';
-  document.getElementById('submit-success').style.display='block';
-  setTimeout(()=>{ renderRatings(activeFountain); renderDots(); switchTab('ratings'); },1200);
+  document.getElementById('tab-ratings').classList.toggle('active', tab === 'ratings');
+  document.getElementById('tab-add').classList.toggle('active',     tab === 'add');
+  document.getElementById('view-ratings').style.display = tab === 'ratings' ? 'block' : 'none';
+  document.getElementById('view-add').style.display     = tab === 'add'     ? 'block' : 'none';
+  if (tab === 'add') resetForm();
 }
 
-// ══════════════════════════════════════════════
-//  Init
-// ══════════════════════════════════════════════
+var SLIDER_KEYS = ['taste','pressure','temp','fillSpeed','reliability','cleanliness','access'];
+
+function updateSlider(key, val) {
+  var el = document.getElementById('prev-' + key);
+  if (el) { el.textContent = parseFloat(val).toFixed(1); el.style.color = scoreColor(+val); }
+}
+
+function resetForm() {
+  SLIDER_KEYS.forEach(function(k) {
+    var sl = document.getElementById('sl-' + k);
+    if (sl) { sl.value = 5; updateSlider(k, '5'); }
+  });
+  document.getElementById('f-author').value   = '';
+  document.getElementById('f-filltime').value = '';
+  document.getElementById('f-note').value     = '';
+  document.getElementById('submit-success').style.display = 'none';
+  document.querySelector('.submit-btn').style.display     = 'block';
+}
+
+function submitRating() {
+  if (!activeFountain) return;
+  var author   = document.getElementById('f-author').value.trim()   || 'anonymous';
+  var fillTime = document.getElementById('f-filltime').value.trim() || null;
+  var note     = document.getElementById('f-note').value.trim()     || null;
+  var scores   = {};
+  SLIDER_KEYS.forEach(function(k) { scores[k] = +document.getElementById('sl-' + k).value; });
+  activeFountain.ratings.push({ author: author, scores: scores, fillTime: fillTime, note: note });
+  document.querySelector('.submit-btn').style.display     = 'none';
+  document.getElementById('submit-success').style.display = 'block';
+  setTimeout(function() {
+    renderRatings(activeFountain);
+    renderDots();
+    switchTab('ratings');
+  }, 1200);
+}
+
+// ── Init ──────────────────────────────────────
 initPanZoom();
 loadFloor(1);
-const f1c=FOUNTAINS.filter(f=>f.floor===1).length;
-document.getElementById('f-count').textContent=`${f1c} fountain${f1c!==1?'s':''}`;
 
-let lastWinW=window.innerWidth, lastWinH=window.innerHeight;
-window.addEventListener('resize', () => {
-  if (window.innerWidth!==lastWinW || window.innerHeight!==lastWinH) {
-    lastWinW=window.innerWidth; lastWinH=window.innerHeight;
+var f1c = FOUNTAINS.filter(function(f) { return f.floor === 1; }).length;
+document.getElementById('f-count').textContent = f1c + ' fountain' + (f1c !== 1 ? 's' : '');
+
+var lastWinW = window.innerWidth, lastWinH = window.innerHeight;
+window.addEventListener('resize', function() {
+  if (window.innerWidth !== lastWinW || window.innerHeight !== lastWinH) {
+    lastWinW = window.innerWidth; lastWinH = window.innerHeight;
     resetView();
   }
 });
