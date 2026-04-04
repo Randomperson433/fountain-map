@@ -432,8 +432,6 @@ function zoomBy(factor, px, py) {
   applyViewBox();
 }
 
-var panelTransitioning = false;
-
 function initPanZoom() {
   var el = document.getElementById('map-container');
 
@@ -580,14 +578,17 @@ function loadFloor(n) {
 // constant regardless of zoom level.
 
 function updateDotScale() {
-  if (panelTransitioning) return;
-  var c = document.getElementById('map-container');
-  if (!c || vw === 1) return;
-  var pxPerUnit = c.clientWidth / vw;
-  var r         =  8 / pxPerUnit;
-  var rRing     = 14 / pxPerUnit;
-  var sw        =  1.5 / pxPerUnit;
-  var swRing    =  2   / pxPerUnit;
+  var floorSvg = document.getElementById('floor-svg');
+  if (!floorSvg || vw === 1) return;
+  // Use the SVG's rendered size rather than the container's clientWidth,
+  // so dot scale is unaffected by the panel opening/closing.
+  var rect = floorSvg.getBoundingClientRect();
+  if (!rect.width) return;
+  var pxPerUnit = rect.width / vw;
+  var r      =  8 / pxPerUnit;
+  var rRing  = 14 / pxPerUnit;
+  var sw     =  1.5 / pxPerUnit;
+  var swRing =  2   / pxPerUnit;
 
   document.querySelectorAll('.f-dot').forEach(function(dot) {
     var core = dot.querySelector('.f-core');
@@ -728,8 +729,6 @@ function openDetail(f) {
   document.getElementById('no-sel').style.display         = 'none';
   document.getElementById('detail-content').style.display = 'flex';
   document.getElementById('detail').classList.add('open');
-  panelTransitioning = true;
-  setTimeout(function() { panelTransitioning = false; updateDotScale(); }, 340);
 }
 
 function renderRatings(f) {
@@ -783,8 +782,6 @@ function renderRatings(f) {
 
 function closeDetail() {
   document.getElementById('detail').classList.remove('open');
-  panelTransitioning = true;
-  setTimeout(function() { panelTransitioning = false; updateDotScale(); }, 340);
   document.querySelectorAll('.f-dot').forEach(function(d) {
     d.classList.remove('active');
     d.querySelector('.f-ring').setAttribute('opacity', '0');
