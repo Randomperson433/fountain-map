@@ -271,7 +271,7 @@ function sbFetch(path, options) {
 
 var FLOOR_IMAGES = {
   1: { src: 'img/floorplan1.svg' },
-  2: { src: 'img/floorplan2.png' }
+  2: { src: 'img/floorplan2.svg' }
 };
 
 var CATEGORIES = [
@@ -419,18 +419,23 @@ function applyViewBox() {
   updateDotScale();
 }
 
+var CROPS = {
+  1: { x: 0,   y: 80,  w: 1721, h: 1460 },
+  2: { x: 460, y: 220, w: 1840, h: 1640 }
+};
+
 function resetView() {
-  var c  = document.getElementById('map-container');
-  var cw = c.clientWidth, ch = c.clientHeight;
-  var pad = 40;
-  var scaleX   = (cw - pad * 2) / CROP_W;
-  var scaleY   = (ch - pad * 2) / CROP_H;
+  var crop = CROPS[activeFloor];
+  var c    = document.getElementById('map-container');
+  var cw   = c.clientWidth, ch = c.clientHeight;
+  var pad  = 40;
+  var scaleX   = (cw - pad * 2) / crop.w;
+  var scaleY   = (ch - pad * 2) / crop.h;
   var fitScale = Math.min(scaleX, scaleY);
   vw = cw / fitScale;
   vh = ch / fitScale;
-  // Center on the cropped region, not the full SVG
-  vx = CROP_X + (CROP_W - vw) / 2;
-  vy = CROP_Y + (CROP_H - vh) / 2;
+  vx = crop.x + (crop.w - vw) / 2;
+  vy = crop.y + (crop.h - vh) / 2;
   applyViewBox();
 }
 
