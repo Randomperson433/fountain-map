@@ -52,22 +52,17 @@ nav {
 .leg-grad { width: 72px; height: 4px; border-radius: 2px; background: linear-gradient(to right, #9b1c1c, #dc2626, #f97316, #eab308, #22c55e, #15803d); }
 .leg-lo, .leg-hi { font-family: var(--mono); font-size: 10px; color: var(--text3); }
 
-/* ── Map container: holds the pannable/zoomable world ── */
 #map-container {
   flex: 1; position: relative; overflow: hidden;
   background: #f5f4f0; cursor: grab; touch-action: none;
 }
 #map-container.panning { cursor: grabbing; }
 
-/* The single world div — translate+scale applied here */
 #map-world {
   position: absolute;
   top: 0; left: 0;
   transform-origin: 0 0;
-  /* width/height set by JS to match the floor image natural size */
 }
-
-/* Floor plan image fills the world exactly */
 #floor-img {
   display: block;
   width: 100%; height: 100%;
@@ -75,14 +70,11 @@ nav {
   -webkit-user-drag: none;
 }
 
-
-/* Dots */
 .f-dot { cursor: pointer; }
 .f-dot .f-ring { fill: none; opacity: 0; transition: opacity 0.12s; }
 .f-dot .f-core { stroke: white; }
 .f-dot:hover .f-ring, .f-dot.active .f-ring { opacity: 0.55; }
 
-/* Zoom controls */
 .zoom-btns { position: absolute; bottom: 14px; left: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
 .zoom-btn { width: 30px; height: 30px; background: var(--white); border: 1px solid var(--border2); border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); font-size: 16px; line-height: 1; transition: background 0.12s; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 .zoom-btn:hover { background: var(--bg); }
@@ -185,11 +177,10 @@ nav {
     </div>
 
     <div id="map-container">
-      <!-- Pannable/zoomable world: image only, gets CSS transform -->
       <div id="map-world">
         <img id="floor-img" src="" alt="Floor plan" draggable="false"/>
       </div>
-      <!-- Dots overlay: fixed to container, dots placed in screen coords so they never scale -->
+      <!-- Dots live in screen-space so they never scale with pan/zoom -->
       <svg id="dots-svg" xmlns="http://www.w3.org/2000/svg"
            style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:5;"></svg>
 
@@ -257,17 +248,14 @@ nav {
 
 <script>
 // ══════════════════════════════════════════════════════════════
-//  CONFIGURATION
-//
-//  FLOOR_IMAGES: paths to your floor plan JPGs.
-//  The natural pixel dimensions of each image are used as the
-//  coordinate space — fountain x/y are percentages of those dims.
-//
-//  To add your real images, just update the `src` values below.
+//  FLOOR IMAGE PATHS
+//  Change these to point to your actual files.
+//  For SVGs: dimensions are read from the viewBox automatically.
+//  For raster images: naturalWidth/Height is used.
 // ══════════════════════════════════════════════════════════════
 const FLOOR_IMAGES = {
   1: { src: 'img/floorplan1.svg' },
-  2: { src: 'img/floorplan2.jpg' }, // or whatever you actually have
+  2: { src: 'img/floorplan2.png' },
 };
 
 const CATEGORIES = [
@@ -280,9 +268,6 @@ const CATEGORIES = [
   { key: 'access',      label: 'Accessibility' },
 ];
 
-// ── FOUNTAINS ─────────────────────────────────────────────────
-// x/y are percentages (0–100) of the floor image width/height.
-// Adjust these once you know where each fountain sits on your map.
 const FOUNTAINS = [
   {
     id: 'f1', name: 'Main Entrance Hall', location: 'Near rooms 160–165, B-wing',
@@ -371,19 +356,20 @@ function avgFillTime(f) {
 
 // ══════════════════════════════════════════════
 //  Pan / Zoom
-//  (CSS transform on #map-world div)
 // ══════════════════════════════════════════════
 let tx=0, ty=0, scale=1;
 let isDragging=false, dragStartX=0, dragStartY=0, dragStartTx=0, dragStartTy=0;
-const MIN_SCALE=0.15, MAX_SCALE=12;
+
+// MIN_SCALE is computed dynamically in resetView() so it always matches
+// the "fit" zoom — user can zoom out 50% further and in up to 12×.
+let MIN_SCALE = 0.1;
+const MAX_SCALE = 12;
 
 function applyTransform() {
-  const world = document.getElementById('map-world');
-  world.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+  document.getElementById('map-world').style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
   repositionDots();
 }
 
-// Called once the floor image has loaded (or dimensions are known)
 function resetView() {
   const dims = floorDims[activeFloor];
   if (!dims) return;
@@ -396,7 +382,12 @@ function resetView() {
   const c = document.getElementById('map-container');
   const cw = c.clientWidth, ch = c.clientHeight;
   const pad = 40;
-  scale = Math.min((cw-pad*2)/iw, (ch-pad*2)/ih);
+  const fitScale = Math.min((cw-pad*2)/iw, (ch-pad*2)/ih);
+
+  // Allow zooming out to 60% of fit, in to 12×
+  MIN_SCALE = fitScale * 0.6;
+
+  scale = fitScale;
   tx = (cw - iw*scale) / 2;
   ty = (ch - ih*scale) / 2;
   applyTransform();
@@ -418,7 +409,8 @@ function initPanZoom() {
   el.addEventListener('wheel', e => {
     e.preventDefault();
     const r = el.getBoundingClientRect();
-    zoomBy(e.deltaY<0?1.12:0.89, e.clientX-r.left, e.clientY-r.top);
+    // Use deltaY sign — negative = scroll up = zoom in
+    zoomBy(e.deltaY < 0 ? 1.12 : 0.89, e.clientX-r.left, e.clientY-r.top);
   }, { passive: false });
 
   el.addEventListener('mousedown', e => {
@@ -431,7 +423,10 @@ function initPanZoom() {
     tx = dragStartTx+(e.clientX-dragStartX); ty = dragStartTy+(e.clientY-dragStartY);
     applyTransform();
   });
-  window.addEventListener('mouseup', () => { isDragging=false; document.getElementById('map-container').classList.remove('panning'); });
+  window.addEventListener('mouseup', () => {
+    isDragging=false;
+    document.getElementById('map-container').classList.remove('panning');
+  });
 
   let lastDist=null;
   el.addEventListener('touchstart', e=>{
@@ -452,10 +447,9 @@ function initPanZoom() {
 }
 
 // ══════════════════════════════════════════════
-//  Load floor image/SVG + render dots
+//  Load floor — SVG-aware dimension detection
 // ══════════════════════════════════════════════
 let activeFloor = 1;
-// Cache natural dims per floor so we don't lose them after switching
 const floorDims = {};
 
 function loadFloor(n) {
@@ -467,39 +461,61 @@ function loadFloor(n) {
     const world = document.getElementById('map-world');
     world.style.width  = w + 'px';
     world.style.height = h + 'px';
-    resetView();   // sets tx/ty/scale first
-    renderDots();  // then place dots in screen space
+    resetView();
+    renderDots();
   };
 
+  const isSVG = /\.svg$/i.test(cfg.src);
+
   img.onload = () => {
-    // naturalWidth/Height is 0 for SVGs in some browsers — fall back to 1200×900
-    onReady(img.naturalWidth || 1200, img.naturalHeight || 900);
+    if (isSVG) {
+      // SVGs report naturalWidth=0 in most browsers.
+      // Fetch the file and read the viewBox to get true dimensions.
+      fetch(cfg.src)
+        .then(r => r.text())
+        .then(text => {
+          // viewBox="minX minY width height"
+          const vb = text.match(/viewBox=["']\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)/i);
+          if (vb) {
+            onReady(parseFloat(vb[1]), parseFloat(vb[2]));
+          } else {
+            // Fall back to explicit width/height attributes on <svg>
+            const wm = text.match(/<svg[^>]+\bwidth=["']([\d.]+)/i);
+            const hm = text.match(/<svg[^>]+\bheight=["']([\d.]+)/i);
+            onReady(wm ? parseFloat(wm[1]) : 800, hm ? parseFloat(hm[1]) : 600);
+          }
+        })
+        .catch(() => onReady(800, 600));
+    } else {
+      onReady(img.naturalWidth, img.naturalHeight);
+    }
   };
+
   img.onerror = () => {
-    console.warn(`${cfg.src} not found — using placeholder dims`);
-    onReady(1200, 900);
+    console.warn(cfg.src + ' not found');
+    onReady(800, 600);
   };
 
   img.src = cfg.src;
 }
 
-// Convert a fountain's image-% position to screen px using current transform
-function fountainScreenPos(f) {
-  const dims = floorDims[activeFloor] || { w: 1200, h: 900 };
-  const imgX = (f.x / 100) * dims.w;  // position in image pixels
-  const imgY = (f.y / 100) * dims.h;
-  // Apply the same transform as #map-world: tx + imgX*scale, ty + imgY*scale
-  return { cx: tx + imgX * scale, cy: ty + imgY * scale };
-}
+// ══════════════════════════════════════════════
+//  Dots — placed in screen space, never scale
+// ══════════════════════════════════════════════
+const DOT_R  = 8;
+const RING_R = 14;
 
-const DOT_R  = 8;   // fixed pixel radius
-const RING_R = 14;  // fixed pixel ring radius
+function fountainScreenPos(f) {
+  const dims = floorDims[activeFloor] || { w: 800, h: 600 };
+  return {
+    cx: tx + (f.x / 100) * dims.w * scale,
+    cy: ty + (f.y / 100) * dims.h * scale,
+  };
+}
 
 function renderDots() {
   const svg = document.getElementById('dots-svg');
   svg.innerHTML = '';
-  // No viewBox — we're working in raw screen pixels
-  svg.removeAttribute('viewBox');
 
   FOUNTAINS.filter(f => f.floor === activeFloor).forEach(f => {
     const { overall } = fountainAvgs(f);
@@ -509,7 +525,7 @@ function renderDots() {
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.setAttribute('class', 'f-dot');
     g.setAttribute('data-id', f.id);
-    g.style.pointerEvents = 'all'; // re-enable on individual dots
+    g.style.pointerEvents = 'all';
 
     const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     ring.setAttribute('class', 'f-ring');
@@ -531,11 +547,9 @@ function renderDots() {
   });
 }
 
-// Re-position existing dots on pan/zoom without full re-render
 function repositionDots() {
   document.querySelectorAll('.f-dot').forEach(g => {
-    const fid = g.getAttribute('data-id');
-    const f = FOUNTAINS.find(f => f.id === fid);
+    const f = FOUNTAINS.find(f => f.id === g.getAttribute('data-id'));
     if (!f) return;
     const { cx, cy } = fountainScreenPos(f);
     g.querySelectorAll('circle').forEach(c => {
@@ -661,12 +675,10 @@ loadFloor(1);
 const f1c=FOUNTAINS.filter(f=>f.floor===1).length;
 document.getElementById('f-count').textContent=`${f1c} fountain${f1c!==1?'s':''}`;
 
-// Only reset view on true window resize, not when the detail panel
-// slides open/closed (which also fires 'resize' on the map container).
-let lastWinW = window.innerWidth, lastWinH = window.innerHeight;
+let lastWinW=window.innerWidth, lastWinH=window.innerHeight;
 window.addEventListener('resize', () => {
-  if (window.innerWidth !== lastWinW || window.innerHeight !== lastWinH) {
-    lastWinW = window.innerWidth; lastWinH = window.innerHeight;
+  if (window.innerWidth!==lastWinW || window.innerHeight!==lastWinH) {
+    lastWinW=window.innerWidth; lastWinH=window.innerHeight;
     resetView();
   }
 });
