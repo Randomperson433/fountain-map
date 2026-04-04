@@ -147,6 +147,60 @@ nav {
 .no-sel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; text-align: center; color: var(--text3); }
 .no-sel .ns-icon { font-size: 24px; margin-bottom: 10px; }
 .no-sel p { font-family: var(--mono); font-size: 11px; line-height: 1.7; letter-spacing: 0.04em; }
+
+.rank-btn {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em;
+  padding: 4px 12px; background: none; border: 1px solid var(--border2);
+  border-radius: 5px; cursor: pointer; color: var(--text2);
+  transition: background 0.15s, color 0.15s;
+}
+.rank-btn.active { background: var(--text); color: var(--white); border-color: var(--text); }
+
+#rankings-panel {
+  position: absolute; top: calc(var(--toolbar-h)); left: 0; right: 0;
+  background: var(--white); border-bottom: 1px solid var(--border);
+  z-index: 20; display: none; flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+#rankings-panel.open { display: flex; }
+
+.rank-sort-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  overflow-x: auto; flex-shrink: 0;
+}
+.rank-sort-btn {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+  padding: 4px 10px; background: none; border: 1px solid var(--border2);
+  border-radius: 4px; cursor: pointer; color: var(--text3); white-space: nowrap;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.rank-sort-btn.active {
+  background: var(--text); color: var(--white); border-color: var(--text);
+}
+.rank-list { overflow-y: auto; max-height: 280px; }
+.rank-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.12s;
+}
+.rank-item:hover { background: var(--bg); }
+.rank-item:last-child { border-bottom: none; }
+.rank-num {
+  font-family: var(--mono); font-size: 11px; color: var(--text3);
+  min-width: 18px; text-align: right;
+}
+.rank-info { flex: 1; min-width: 0; }
+.rank-name { font-family: var(--serif); font-size: 15px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-loc { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 1px; }
+.rank-score {
+  font-family: var(--mono); font-size: 16px; font-weight: 500;
+  min-width: 36px; text-align: right;
+}
+.rank-no-ratings {
+  font-family: var(--mono); font-size: 11px; color: var(--text3);
+  padding: 20px; text-align: center;
+}
 </style>
 </head>
 <body>
@@ -167,6 +221,7 @@ nav {
           <button class="floor-btn active" id="fbtn-1" onclick="switchFloor(1)">Level 1</button>
           <button class="floor-btn" id="fbtn-2" onclick="switchFloor(2)">Level 2</button>
         </div>
+        <button class="rank-btn" id="rank-btn" onclick="toggleRankings()">Rankings</button>
         <div class="legend">
           <div class="leg-wrap">
             <div class="leg-grad"></div>
@@ -182,6 +237,11 @@ nav {
         </div>
       </div>
       <span class="tb-label" id="f-count"></span>
+    </div>
+
+    <div id="rankings-panel">  
+      <div class="rank-sort-bar" id="rank-sort-bar"></div>
+      <div class="rank-list" id="rank-list"></div>
     </div>
 
     <div id="map-container">
@@ -468,6 +528,7 @@ function loadRatings() {
       });
       renderDots();
       if (activeFountain) renderRatings(activeFountain);
+      if (rankingsOpen) renderRankings();
     })
     .catch(function(err) { console.error('Failed to load ratings:', err); });
 }
@@ -910,6 +971,88 @@ function submitRating() {
     btn.style.opacity = '';
     alert('Failed to submit — please try again.');
   });
+}
+
+// ── Rankings ──────────────────────────────────
+var rankingsOpen = false;
+var rankSortKey  = 'overall';
+
+var RANK_SORTS = [
+  { key: 'overall',     label: 'Overall' },
+  { key: 'taste',       label: 'Taste' },
+  { key: 'pressure',    label: 'Pressure' },
+  { key: 'temp',        label: 'Temp' },
+  { key: 'fillSpeed',   label: 'Fill speed' },
+  { key: 'consistency', label: 'Consistency' },
+  { key: 'cleanliness', label: 'Cleanliness' },
+  { key: 'access',      label: 'Accessibility' }
+];
+
+function toggleRankings() {
+  rankingsOpen = !rankingsOpen;
+  document.getElementById('rank-btn').classList.toggle('active', rankingsOpen);
+  document.getElementById('rankings-panel').classList.toggle('open', rankingsOpen);
+  if (rankingsOpen) renderRankings();
+}
+
+function renderRankings() {
+  // Sort bar
+  var sortBar = document.getElementById('rank-sort-bar');
+  sortBar.innerHTML = RANK_SORTS.map(function(s) {
+    return '<button class="rank-sort-btn' + (rankSortKey === s.key ? ' active' : '') +
+      '" onclick="setRankSort(\'' + s.key + '\')">' + s.label + '</button>';
+  }).join('');
+
+  // Ranked list — only fountains on current floor with ratings
+  var fountains = FOUNTAINS.filter(function(f) {
+    return f.floor === activeFloor && f.ratings.length > 0;
+  });
+
+  if (!fountains.length) {
+    document.getElementById('rank-list').innerHTML =
+      '<div class="rank-no-ratings">No rated fountains on this floor yet.</div>';
+    return;
+  }
+
+  fountains.sort(function(a, b) {
+    var sa = getFountainScore(a, rankSortKey);
+    var sb = getFountainScore(b, rankSortKey);
+    return sb - sa;
+  });
+
+  document.getElementById('rank-list').innerHTML = fountains.map(function(f, i) {
+    var score  = getFountainScore(f, rankSortKey);
+    var color  = scoreColor(score);
+    return '<div class="rank-item" onclick="onRankClick(\'' + f.id + '\')">' +
+      '<div class="rank-num">' + (i + 1) + '</div>' +
+      '<div class="rank-info">' +
+        '<div class="rank-name">' + f.name + '</div>' +
+        '<div class="rank-loc">' + f.location + '</div>' +
+      '</div>' +
+      '<div class="rank-score" style="color:' + color + '">' + score.toFixed(1) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function getFountainScore(f, key) {
+  var avgs = fountainAvgs(f);
+  if (key === 'overall') return avgs.overall;
+  return avgs.catAvgs[key] || 0;
+}
+
+function setRankSort(key) {
+  rankSortKey = key;
+  renderRankings();
+}
+
+function onRankClick(id) {
+  var f = null;
+  for (var i = 0; i < FOUNTAINS.length; i++) {
+    if (FOUNTAINS[i].id === id) { f = FOUNTAINS[i]; break; }
+  }
+  if (!f) return;
+  toggleRankings();
+  openDetail(f);
 }
 
 // ── Init ──────────────────────────────────────
