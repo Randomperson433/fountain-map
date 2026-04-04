@@ -39,11 +39,13 @@ header {
   flex: 1; position: relative; overflow: hidden; cursor: crosshair;
   background: var(--white);
 }
-#fp-img {
+
+/* The floor plan SVG is panned/zoomed via viewBox, same approach as map.html */
+#floor-svg {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: contain; opacity: 0.65; user-select: none; pointer-events: none;
+  pointer-events: none;
 }
-#grid-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#grid-svg  { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
 /* Crosshairs */
 #xhair-h, #xhair-v {
@@ -58,6 +60,13 @@ header {
   transform: translate(-50%,-50%); pointer-events: none;
   display: none; z-index: 10; box-shadow: 0 0 0 3px rgba(37,99,235,0.2);
 }
+
+/* Zoom controls */
+.zoom-btns { position: absolute; bottom: 14px; left: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
+.zoom-btn { width: 30px; height: 30px; background: var(--white); border: 1px solid var(--border2); border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); font-size: 16px; line-height: 1; transition: background 0.12s; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.zoom-btn:hover { background: var(--bg); }
+.zoom-btn.reset { font-family: var(--mono); font-size: 11px; }
+.zoom-hint { position: absolute; bottom: 14px; right: 14px; font-family: var(--mono); font-size: 10px; color: var(--text3); background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 4px 9px; z-index: 10; pointer-events: none; }
 
 /* Side panel */
 .panel {
@@ -165,11 +174,17 @@ header {
 
 <div class="main">
   <div class="map-wrap" id="map-wrap">
-    <img src="../img/floorplan1.svg" id="fp-img" alt="floor plan"/>
-    <svg id="grid-svg"></svg>
+    <svg id="floor-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <svg id="grid-svg" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="xhair-h"></div>
     <div id="xhair-v"></div>
     <div id="cursor-dot"></div>
+    <div class="zoom-btns">
+      <button class="zoom-btn" onclick="zoomBy(1.3)">+</button>
+      <button class="zoom-btn" onclick="zoomBy(0.77)">−</button>
+      <button class="zoom-btn reset" onclick="resetView()">fit</button>
+    </div>
+    <div class="zoom-hint">scroll to zoom · drag to pan</div>
   </div>
 
   <div class="panel">
@@ -211,119 +226,253 @@ header {
 </div>
 
 <script>
-let showGrid = true;
-let cx = null, cy = null;
-const history = [];
+// ── Floor plan dimensions ─────────────────────
+// Update these to match your SVG's viewBox width/height
+var NAT_W = 2823;
+var NAT_H = 2212;
+var FLOOR_SRC = '../img/floorplan1.svg';
 
-function getImgRect() {
-  const w = document.getElementById('map-wrap');
-  const cw = w.clientWidth, ch = w.clientHeight;
-  const natW = 1240, natH = 956, r = natW/natH, cr = cw/ch;
-  let iw, ih;
-  if (cr > r) { ih = ch; iw = ih*r; } else { iw = cw; ih = iw/r; }
-  return { x:(cw-iw)/2, y:(ch-ih)/2, w:iw, h:ih };
-}
+// ── Pan/zoom state (same viewBox approach as map.html) ────────────────
+var vx = 0, vy = 0, vw = NAT_W, vh = NAT_H;
+var isDragging = false;
+var dragStartX = 0, dragStartY = 0, dragStartVx = 0, dragStartVy = 0;
+var isHovering = false;
 
-function toPct(px, py) {
-  const r = getImgRect();
+function screenToSVG(px, py) {
+  var c = document.getElementById('map-wrap');
   return {
-    x: +Math.max(0,Math.min(100,((px-r.x)/r.w)*100)).toFixed(1),
-    y: +Math.max(0,Math.min(100,((py-r.y)/r.h)*100)).toFixed(1)
+    x: vx + (px / c.clientWidth)  * vw,
+    y: vy + (py / c.clientHeight) * vh
   };
 }
 
-const xhH = document.getElementById('xhair-h');
-const xhV = document.getElementById('xhair-v');
-const dot  = document.getElementById('cursor-dot');
-const lx   = document.getElementById('lx');
-const ly   = document.getElementById('ly');
+// Convert SVG coords back to percentage of full image
+function svgToPct(sx, sy) {
+  return {
+    x: +Math.max(0, Math.min(100, (sx / NAT_W) * 100)).toFixed(1),
+    y: +Math.max(0, Math.min(100, (sy / NAT_H) * 100)).toFixed(1)
+  };
+}
 
-document.getElementById('map-wrap').addEventListener('mousemove', e => {
-  const b = document.getElementById('map-wrap').getBoundingClientRect();
-  const mx = e.clientX-b.left, my = e.clientY-b.top;
-  const p = toPct(mx, my);
-  lx.textContent = p.x; ly.textContent = p.y;
-  xhH.style.display='block'; xhH.style.top=my+'px';
-  xhV.style.display='block'; xhV.style.left=mx+'px';
-  dot.style.display='block'; dot.style.left=mx+'px'; dot.style.top=my+'px';
+function applyViewBox() {
+  document.getElementById('floor-svg').setAttribute('viewBox', vx + ' ' + vy + ' ' + vw + ' ' + vh);
+  drawGrid(+document.getElementById('density').value);
+}
+
+function resetView() {
+  var c  = document.getElementById('map-wrap');
+  var cw = c.clientWidth, ch = c.clientHeight;
+  var pad = 40;
+  var scaleX   = (cw - pad * 2) / NAT_W;
+  var scaleY   = (ch - pad * 2) / NAT_H;
+  var fitScale = Math.min(scaleX, scaleY);
+  vw = cw / fitScale;
+  vh = ch / fitScale;
+  vx = (NAT_W - vw) / 2;
+  vy = (NAT_H - vh) / 2;
+  applyViewBox();
+}
+
+function zoomBy(factor, px, py) {
+  var c = document.getElementById('map-wrap');
+  px = (px !== undefined) ? px : c.clientWidth  / 2;
+  py = (py !== undefined) ? py : c.clientHeight / 2;
+  var anchor = screenToSVG(px, py);
+  var maxVw  = NAT_W * 3;
+  var minVw  = NAT_W / 20;
+  var newVw  = Math.max(minVw, Math.min(maxVw, vw / factor));
+  var newVh  = newVw * (c.clientHeight / c.clientWidth);
+  vx = anchor.x - (px / c.clientWidth)  * newVw;
+  vy = anchor.y - (py / c.clientHeight) * newVh;
+  vw = newVw;
+  vh = newVh;
+  applyViewBox();
+}
+
+// ── Load floor plan SVG inline ────────────────
+fetch(FLOOR_SRC)
+  .then(function(r) { return r.text(); })
+  .then(function(text) {
+    text = text.replace(/(<svg[^>]*?)\s+width=["'][^"']*["']/i,  '$1');
+    text = text.replace(/(<svg[^>]*?)\s+height=["'][^"']*["']/i, '$1');
+    var parser  = new DOMParser();
+    var doc     = parser.parseFromString(text, 'image/svg+xml');
+    var inlined = doc.documentElement;
+    // Copy children into our floor-svg element
+    var floorSvg = document.getElementById('floor-svg');
+    while (inlined.firstChild) floorSvg.appendChild(inlined.firstChild);
+    // Dim it slightly so grid/crosshairs are visible
+    floorSvg.style.opacity = '0.65';
+    resetView();
+  })
+  .catch(function() {
+    // Fallback: just show as image element
+    var floorSvg = document.getElementById('floor-svg');
+    var imgEl = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+    imgEl.setAttribute('href',   FLOOR_SRC);
+    imgEl.setAttribute('x',      '0');
+    imgEl.setAttribute('y',      '0');
+    imgEl.setAttribute('width',  NAT_W);
+    imgEl.setAttribute('height', NAT_H);
+    imgEl.style.opacity = '0.65';
+    floorSvg.appendChild(imgEl);
+    resetView();
+  });
+
+// ── Pan/zoom interactions ─────────────────────
+var el = document.getElementById('map-wrap');
+
+el.addEventListener('wheel', function(e) {
+  e.preventDefault();
+  var r = el.getBoundingClientRect();
+  zoomBy(e.deltaY < 0 ? 1.12 : 0.89, e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+
+el.addEventListener('mousedown', function(e) {
+  if (e.target.closest('.zoom-btn')) return;
+  isDragging = true;
+  dragStartX = e.clientX; dragStartY = e.clientY;
+  dragStartVx = vx; dragStartVy = vy;
+  el.style.cursor = 'grabbing';
+});
+window.addEventListener('mousemove', function(e) {
+  if (!isDragging) return;
+  var c  = document.getElementById('map-wrap');
+  var dx = (e.clientX - dragStartX) / c.clientWidth  * vw;
+  var dy = (e.clientY - dragStartY) / c.clientHeight * vh;
+  vx = dragStartVx - dx;
+  vy = dragStartVy - dy;
+  applyViewBox();
+});
+window.addEventListener('mouseup', function() {
+  if (!isDragging) return;
+  isDragging = false;
+  el.style.cursor = isHovering ? 'crosshair' : 'crosshair';
 });
 
-document.getElementById('map-wrap').addEventListener('mouseleave', () => {
-  xhH.style.display=xhV.style.display=dot.style.display='none';
-  lx.textContent=ly.textContent='—';
+// ── Crosshairs + coordinates ──────────────────
+var showGrid = true;
+var cx = null, cy = null;
+var clickHistory = [];
+
+var xhH  = document.getElementById('xhair-h');
+var xhV  = document.getElementById('xhair-v');
+var dot  = document.getElementById('cursor-dot');
+var lxEl = document.getElementById('lx');
+var lyEl = document.getElementById('ly');
+
+el.addEventListener('mousemove', function(e) {
+  if (isDragging) return;
+  var b  = el.getBoundingClientRect();
+  var mx = e.clientX - b.left, my = e.clientY - b.top;
+  var sv = screenToSVG(mx, my);
+  var p  = svgToPct(sv.x, sv.y);
+  lxEl.textContent = p.x;
+  lyEl.textContent = p.y;
+  xhH.style.display = 'block'; xhH.style.top  = my + 'px';
+  xhV.style.display = 'block'; xhV.style.left = mx + 'px';
+  dot.style.display = 'block'; dot.style.left = mx + 'px'; dot.style.top = my + 'px';
+  isHovering = true;
 });
 
-document.getElementById('map-wrap').addEventListener('click', e => {
-  const b = document.getElementById('map-wrap').getBoundingClientRect();
-  const p = toPct(e.clientX-b.left, e.clientY-b.top);
+el.addEventListener('mouseleave', function() {
+  xhH.style.display = xhV.style.display = dot.style.display = 'none';
+  lxEl.textContent = lyEl.textContent = '—';
+  isHovering = false;
+});
+
+el.addEventListener('click', function(e) {
+  if (Math.abs(e.clientX - dragStartX) > 4 || Math.abs(e.clientY - dragStartY) > 4) return; // ignore drag-release
+  var b  = el.getBoundingClientRect();
+  var sv = screenToSVG(e.clientX - b.left, e.clientY - b.top);
+  var p  = svgToPct(sv.x, sv.y);
   cx = p.x; cy = p.y;
-  document.getElementById('click-box').innerHTML = `
-    <span class="click-val">x: ${cx}, y: ${cy}</span>
-    <span class="click-hint">paste into FOUNTAINS array in map.html</span>
-  `;
-  const btn = document.getElementById('copy-btn');
-  btn.textContent = `copy as x: ${cx}, y: ${cy}`;
+  document.getElementById('click-box').innerHTML =
+    '<span class="click-val">x: ' + cx + ', y: ' + cy + '</span>' +
+    '<span class="click-hint">paste into FOUNTAINS array in map.html</span>';
+  var btn = document.getElementById('copy-btn');
+  btn.textContent = 'copy as x: ' + cx + ', y: ' + cy;
   btn.classList.remove('copied');
-  history.unshift({x:cx,y:cy});
-  if (history.length>20) history.pop();
+  clickHistory.unshift({ x: cx, y: cy });
+  if (clickHistory.length > 20) clickHistory.pop();
   renderHistory();
 });
 
 function copyCoords() {
-  if (cx===null) return;
-  navigator.clipboard.writeText(`x: ${cx}, y: ${cy}`).then(()=>{
-    const btn = document.getElementById('copy-btn');
-    btn.textContent='✓ copied!'; btn.classList.add('copied');
-    setTimeout(()=>{ btn.textContent=`copy as x: ${cx}, y: ${cy}`; btn.classList.remove('copied'); },1400);
+  if (cx === null) return;
+  navigator.clipboard.writeText('x: ' + cx + ', y: ' + cy).then(function() {
+    var btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ copied!'; btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'copy as x: ' + cx + ', y: ' + cy;
+      btn.classList.remove('copied');
+    }, 1400);
   });
 }
 
 function renderHistory() {
-  document.getElementById('history').innerHTML = history.map((h,i)=>`
-    <div class="hist-item">
-      <span class="hist-xy">x:<span>${h.x}</span> y:<span>${h.y}</span></span>
-      <span class="hist-n">#${history.length-i}</span>
-      <button class="hist-cp" onclick="navigator.clipboard.writeText('x: ${h.x}, y: ${h.y}')" title="copy">⎘</button>
-    </div>
-  `).join('');
+  document.getElementById('history').innerHTML = clickHistory.map(function(h, i) {
+    return '<div class="hist-item">' +
+      '<span class="hist-xy">x:<span>' + h.x + '</span> y:<span>' + h.y + '</span></span>' +
+      '<span class="hist-n">#' + (clickHistory.length - i) + '</span>' +
+      '<button class="hist-cp" onclick="navigator.clipboard.writeText(\'x: ' + h.x + ', y: ' + h.y + '\')" title="copy">⎘</button>' +
+      '</div>';
+  }).join('');
 }
 
+// ── Grid overlay ──────────────────────────────
+// Grid lines are drawn in screen pixel space on top of the zoomed floor plan.
+// This keeps grid lines a constant visual weight regardless of zoom level.
 function drawGrid(d) {
-  const svg = document.getElementById('grid-svg');
-  if (!showGrid) { svg.innerHTML=''; return; }
-  const r = getImgRect();
-  const w = document.getElementById('map-wrap');
-  let html='';
-  for (let p=0; p<=100; p+=d) {
-    const x = r.x+(p/100)*r.w;
-    const maj = p%(d*5||25)===0;
-    html+=`<line x1="${x}" y1="${r.y}" x2="${x}" y2="${r.y+r.h}" stroke="rgba(37,99,235,${maj?.22:.08})" stroke-width="${maj?.8:.4}"/>`;
-    if (maj||d>=10) html+=`<text x="${x+2}" y="${r.y+11}" font-size="9" fill="rgba(37,99,235,0.45)" font-family="DM Mono,monospace">${p}</text>`;
+  var svg = document.getElementById('grid-svg');
+  if (!showGrid) { svg.innerHTML = ''; return; }
+
+  var c  = document.getElementById('map-wrap');
+  var cw = c.clientWidth, ch = c.clientHeight;
+  var html = '';
+
+  // Draw vertical lines for each percentage step
+  for (var p = 0; p <= 100; p += d) {
+    // Convert SVG x coordinate to screen x
+    var svgX  = (p / 100) * NAT_W;
+    var scrX  = (svgX - vx) / vw * cw;
+    if (scrX < 0 || scrX > cw) continue;
+    var maj   = (p % (d * 5) === 0);
+    html += '<line x1="' + scrX + '" y1="0" x2="' + scrX + '" y2="' + ch +
+            '" stroke="rgba(37,99,235,' + (maj ? .22 : .08) + ')" stroke-width="' + (maj ? .8 : .4) + '"/>';
+    if (maj || d >= 10) {
+      html += '<text x="' + (scrX + 2) + '" y="14" font-size="9" fill="rgba(37,99,235,0.5)" font-family="DM Mono,monospace">' + p + '</text>';
+    }
   }
-  for (let p=0; p<=100; p+=d) {
-    const y = r.y+(p/100)*r.h;
-    const maj = p%(d*5||25)===0;
-    html+=`<line x1="${r.x}" y1="${y}" x2="${r.x+r.w}" y2="${y}" stroke="rgba(37,99,235,${maj?.22:.08})" stroke-width="${maj?.8:.4}"/>`;
-    if (maj||d>=10) html+=`<text x="${r.x+3}" y="${y-2}" font-size="9" fill="rgba(37,99,235,0.45)" font-family="DM Mono,monospace">${p}</text>`;
+  // Draw horizontal lines
+  for (var p = 0; p <= 100; p += d) {
+    var svgY  = (p / 100) * NAT_H;
+    var scrY  = (svgY - vy) / vh * ch;
+    if (scrY < 0 || scrY > ch) continue;
+    var maj   = (p % (d * 5) === 0);
+    html += '<line x1="0" y1="' + scrY + '" x2="' + cw + '" y2="' + scrY +
+            '" stroke="rgba(37,99,235,' + (maj ? .22 : .08) + ')" stroke-width="' + (maj ? .8 : .4) + '"/>';
+    if (maj || d >= 10) {
+      html += '<text x="3" y="' + (scrY - 2) + '" font-size="9" fill="rgba(37,99,235,0.5)" font-family="DM Mono,monospace">' + p + '</text>';
+    }
   }
-  html+=`<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="none" stroke="rgba(37,99,235,0.2)" stroke-width="1"/>`;
-  svg.innerHTML=html;
+
+  svg.innerHTML = html;
 }
 
 function toggleGrid() {
-  showGrid=!showGrid;
-  document.getElementById('grid-toggle').classList.toggle('on',showGrid);
+  showGrid = !showGrid;
+  document.getElementById('grid-toggle').classList.toggle('on', showGrid);
   drawGrid(+document.getElementById('density').value);
 }
 
 function updateGrid() {
-  const d = +document.getElementById('density').value;
-  document.getElementById('dv').textContent=d;
+  var d = +document.getElementById('density').value;
+  document.getElementById('dv').textContent = d;
   drawGrid(d);
 }
 
-drawGrid(10);
-window.addEventListener('resize',()=>drawGrid(+document.getElementById('density').value));
+window.addEventListener('resize', resetView);
 </script>
 </body>
 </html>
