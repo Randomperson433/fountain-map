@@ -70,20 +70,20 @@ nav {
 }
 .hero-title em { font-style: italic; color: var(--text2); }
 
-.hero-graphic { position: relative; flex: 1; min-height: 200px; margin-top: -16px; }
+.hero-graphic { position: relative; flex: 1; min-height: 320px; margin-top: -8px; }
 .hero-fp-img {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover; object-position: 35% 30%;
-  opacity: 0.12; filter: saturate(0) contrast(1.1);
+  object-fit: cover; object-position: center 30%;
+  opacity: 0.55;
   pointer-events: none; user-select: none;
 }
 .hero-fade-up {
-  position: absolute; top: 0; left: 0; right: 0; height: 110px;
+  position: absolute; top: 0; left: 0; right: 0; height: 60px;
   background: linear-gradient(to bottom, #ffffff 0%, transparent 100%);
   z-index: 2; pointer-events: none;
 }
 .hero-fade-down {
-  position: absolute; bottom: 0; left: 0; right: 0; height: 70px;
+  position: absolute; bottom: 0; left: 0; right: 0; height: 160px;
   background: linear-gradient(to top, #ffffff 0%, transparent 100%);
   z-index: 2; pointer-events: none;
 }
@@ -160,7 +160,7 @@ footer {
     </h1>
   </div>
   <div class="hero-graphic">
-    <img src="img/floorplan1.svg" class="hero-fp-img" alt=""/>
+    <img src="img/waterfountain.jpg" class="hero-fp-img" alt="water fountain"/>
     <div class="hero-fade-up"></div>
     <div class="hero-fade-down"></div>
   </div>
