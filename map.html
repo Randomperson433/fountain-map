@@ -60,22 +60,22 @@ nav {
 }
 #map-container.panning { cursor: grabbing; }
 
-#map-world {
-  position: absolute; top: 0; left: 0;
-  transform-origin: 0 0;
-  will-change: transform;
+/* The floor SVG is inlined directly into #map-container and fills it.
+   Pan/zoom works by manipulating the SVG viewBox — no CSS transform scaling.
+   This means the browser re-renders the SVG at screen resolution on every
+   zoom level, so it stays perfectly crisp no matter how far you zoom in. */
+#map-container > svg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block; pointer-events: none;
+  cursor: inherit;
 }
 
-/* Inlined SVG fills the world div — stays crisp at any zoom */
-#map-world svg {
-  display: block; width: 100%; height: 100%;
-  pointer-events: none;
-}
-
-/* Raster fallback */
-#map-world img {
-  display: block; width: 100%; height: 100%;
-  user-select: none; pointer-events: none;
+/* Raster fallback image */
+#map-container > img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block; user-select: none; pointer-events: none;
 }
 
 .f-dot { cursor: pointer; }
@@ -193,7 +193,7 @@ nav {
     </div>
 
     <div id="map-container">
-      <div id="map-world"></div>
+      <!-- Floor plan SVG injected here by loadFloor() -->
       <svg id="dots-svg" xmlns="http://www.w3.org/2000/svg"
            style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:5;"></svg>
       <div class="zoom-btns">
@@ -375,42 +375,83 @@ function avgFillTime(f) {
   return times.length ? avg(times).toFixed(1) + 's' : null;
 }
 
-// ── Pan / Zoom ────────────────────────────────
-var tx = 0, ty = 0, scale = 1;
-var isDragging = false, dragStartX = 0, dragStartY = 0, dragStartTx = 0, dragStartTy = 0;
-var MIN_SCALE = 0.1, MAX_SCALE = 12;
+// ── Pan / Zoom via SVG viewBox ────────────────
+// Instead of CSS transform (which rasterizes the SVG at layout size then
+// stretches the bitmap), we manipulate the SVG viewBox directly.
+// The browser re-renders the SVG at screen resolution on every change —
+// always crisp, no matter how far you zoom in.
+//
+// State: vx, vy = top-left corner of visible area in SVG units
+//        vw, vh = visible area size in SVG units (smaller = more zoomed in)
+var vx = 0, vy = 0, vw = 1, vh = 1;  // set properly by resetView
+var svgNatW = 1, svgNatH = 1;         // SVG viewBox natural dimensions
 
-function applyTransform() {
-  document.getElementById('map-world').style.transform =
-    'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
+var isDragging = false;
+var dragStartX = 0, dragStartY = 0;
+var dragStartVx = 0, dragStartVy = 0;
+
+// Convert a screen pixel position to SVG coordinates
+function screenToSVG(px, py) {
+  var c = document.getElementById('map-container');
+  return {
+    x: vx + (px / c.clientWidth)  * vw,
+    y: vy + (py / c.clientHeight) * vh
+  };
+}
+
+function applyViewBox() {
+  var floorSvg = document.getElementById('floor-svg');
+  if (floorSvg) {
+    floorSvg.setAttribute('viewBox', vx + ' ' + vy + ' ' + vw + ' ' + vh);
+  }
   repositionDots();
 }
 
 function resetView() {
-  var dims = floorDims[activeFloor];
-  if (!dims) return;
-  var world = document.getElementById('map-world');
-  world.style.width  = dims.w + 'px';
-  world.style.height = dims.h + 'px';
-  var c = document.getElementById('map-container');
-  var fitScale = Math.min((c.clientWidth - 80) / dims.w, (c.clientHeight - 80) / dims.h);
-  MIN_SCALE = fitScale * 0.6;
-  scale = fitScale;
-  tx = (c.clientWidth  - dims.w * scale) / 2;
-  ty = (c.clientHeight - dims.h * scale) / 2;
-  applyTransform();
+  if (!svgNatW || svgNatW === 1) return;
+  var c  = document.getElementById('map-container');
+  var cw = c.clientWidth, ch = c.clientHeight;
+  var pad = 40;
+
+  // Fit the full SVG into the container with padding
+  var fitW = svgNatW;
+  var fitH = svgNatH;
+  var scaleX = (cw - pad * 2) / fitW;
+  var scaleY = (ch - pad * 2) / fitH;
+  var fitScale = Math.min(scaleX, scaleY);
+
+  // vw/vh: how many SVG units fit in the viewport
+  vw = cw / fitScale;
+  vh = ch / fitScale;
+
+  // Center the map
+  vx = (svgNatW - vw) / 2;
+  vy = (svgNatH - vh) / 2;
+
+  applyViewBox();
 }
 
 function zoomBy(factor, px, py) {
-  var c = document.getElementById('map-container');
-  px = (px !== undefined) ? px : c.clientWidth / 2;
+  var c  = document.getElementById('map-container');
+  px = (px !== undefined) ? px : c.clientWidth  / 2;
   py = (py !== undefined) ? py : c.clientHeight / 2;
-  var ns = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
-  var sf = ns / scale;
-  tx = px - sf * (px - tx);
-  ty = py - sf * (py - ty);
-  scale = ns;
-  applyTransform();
+
+  // What SVG point is under the mouse?
+  var anchor = screenToSVG(px, py);
+
+  // Scale the viewport (smaller vw/vh = more zoomed in)
+  var maxVw = svgNatW * 3;   // max zoom out: 3x the natural size
+  var minVw = svgNatW / 20;  // max zoom in:  20x
+  var newVw = Math.max(minVw, Math.min(maxVw, vw / factor));
+  var newVh = newVw * (c.clientHeight / c.clientWidth);
+
+  // Keep the anchor point fixed on screen
+  vx = anchor.x - (px / c.clientWidth)  * newVw;
+  vy = anchor.y - (py / c.clientHeight) * newVh;
+  vw = newVw;
+  vh = newVh;
+
+  applyViewBox();
 }
 
 function initPanZoom() {
@@ -426,14 +467,18 @@ function initPanZoom() {
     if (e.target.closest('.f-dot') || e.target.closest('.zoom-btn')) return;
     isDragging = true;
     dragStartX = e.clientX; dragStartY = e.clientY;
-    dragStartTx = tx; dragStartTy = ty;
+    dragStartVx = vx; dragStartVy = vy;
     el.classList.add('panning');
   });
   window.addEventListener('mousemove', function(e) {
     if (!isDragging) return;
-    tx = dragStartTx + (e.clientX - dragStartX);
-    ty = dragStartTy + (e.clientY - dragStartY);
-    applyTransform();
+    var c  = document.getElementById('map-container');
+    // Convert pixel delta to SVG units
+    var dx = (e.clientX - dragStartX) / c.clientWidth  * vw;
+    var dy = (e.clientY - dragStartY) / c.clientHeight * vh;
+    vx = dragStartVx - dx;
+    vy = dragStartVy - dy;
+    applyViewBox();
   });
   window.addEventListener('mouseup', function() {
     isDragging = false;
@@ -445,7 +490,7 @@ function initPanZoom() {
     if (e.touches.length === 1) {
       isDragging = true;
       dragStartX = e.touches[0].clientX; dragStartY = e.touches[0].clientY;
-      dragStartTx = tx; dragStartTy = ty;
+      dragStartVx = vx; dragStartVy = vy;
     } else if (e.touches.length === 2) {
       isDragging = false;
       lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
@@ -454,10 +499,13 @@ function initPanZoom() {
   }, { passive: true });
   el.addEventListener('touchmove', function(e) {
     e.preventDefault();
+    var c = document.getElementById('map-container');
     if (e.touches.length === 1 && isDragging) {
-      tx = dragStartTx + (e.touches[0].clientX - dragStartX);
-      ty = dragStartTy + (e.touches[0].clientY - dragStartY);
-      applyTransform();
+      var dx = (e.touches[0].clientX - dragStartX) / c.clientWidth  * vw;
+      var dy = (e.touches[0].clientY - dragStartY) / c.clientHeight * vh;
+      vx = dragStartVx - dx;
+      vy = dragStartVy - dy;
+      applyViewBox();
     } else if (e.touches.length === 2 && lastDist) {
       var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX,
                          e.touches[0].clientY - e.touches[1].clientY);
@@ -472,20 +520,22 @@ function initPanZoom() {
 }
 
 // ── Load floor ────────────────────────────────
-// SVGs are fetched and inlined as live DOM — crisp at any zoom, no rasterization.
-// Raster images fall back to a plain <img>.
 var activeFloor = 1;
 var floorDims   = {};
 
 function loadFloor(n) {
-  var cfg   = FLOOR_IMAGES[n];
-  var world = document.getElementById('map-world');
-  var isSVG = /\.svg$/i.test(cfg.src);
+  var cfg       = FLOOR_IMAGES[n];
+  var container = document.getElementById('map-container');
+  var isSVG     = /\.svg$/i.test(cfg.src);
 
-  function onReady(w, h) {
-    floorDims[n] = { w: w, h: h };
-    world.style.width  = w + 'px';
-    world.style.height = h + 'px';
+  // Remove old floor SVG/img (but keep dots-svg)
+  var old = container.querySelector('.floor-layer');
+  if (old) old.parentNode.removeChild(old);
+
+  function onReady(natW, natH) {
+    floorDims[n] = { w: natW, h: natH };
+    svgNatW = natW;
+    svgNatH = natH;
     resetView();
     renderDots();
   }
@@ -494,49 +544,59 @@ function loadFloor(n) {
     fetch(cfg.src)
       .then(function(r) { return r.text(); })
       .then(function(text) {
-        // Read viewBox dimensions
-        var vb = text.match(/viewBox=["']\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)/i);
-        var w  = vb ? parseFloat(vb[1]) : 1200;
-        var h  = vb ? parseFloat(vb[2]) : 900;
+        // Read natural viewBox dimensions
+        var vb   = text.match(/viewBox=["']\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)/i);
+        var natW = vb ? parseFloat(vb[1]) : 1200;
+        var natH = vb ? parseFloat(vb[2]) : 900;
 
-        // Remove fixed width/height from the root SVG tag so CSS can size it
+        // Strip fixed width/height so the SVG scales via CSS
         text = text.replace(/(<svg[^>]*?)\s+width=["'][^"']*["']/i,  '$1');
         text = text.replace(/(<svg[^>]*?)\s+height=["'][^"']*["']/i, '$1');
 
-        // Inline the SVG directly — stays vector at all zoom levels
-        world.innerHTML = text;
+        // Parse and insert before dots-svg
+        var parser  = new DOMParser();
+        var doc     = parser.parseFromString(text, 'image/svg+xml');
+        var inlined = doc.documentElement;
+        inlined.id  = 'floor-svg';
+        inlined.setAttribute('class', 'floor-layer');
+        // viewBox starts at the natural full extent; resetView() will zoom-fit it
+        inlined.setAttribute('viewBox', '0 0 ' + natW + ' ' + natH);
+        inlined.style.pointerEvents = 'none';
 
-        var inlineSvg = world.querySelector('svg');
-        if (inlineSvg) {
-          inlineSvg.style.width         = '100%';
-          inlineSvg.style.height        = '100%';
-          inlineSvg.style.display       = 'block';
-          inlineSvg.style.pointerEvents = 'none';
-        }
+        var dotsSvg = document.getElementById('dots-svg');
+        container.insertBefore(inlined, dotsSvg);
 
-        onReady(w, h);
+        onReady(natW, natH);
       })
       .catch(function() { onReady(1200, 900); });
   } else {
-    world.innerHTML = '';
     var img = document.createElement('img');
-    img.src = cfg.src;
+    img.id        = 'floor-img';
+    img.className = 'floor-layer';
+    img.src       = cfg.src;
     img.draggable = false;
     img.onload  = function() { onReady(img.naturalWidth, img.naturalHeight); };
     img.onerror = function() { onReady(1200, 900); };
-    world.appendChild(img);
+    var dotsSvg = document.getElementById('dots-svg');
+    container.insertBefore(img, dotsSvg);
   }
 }
 
 // ── Dots ─────────────────────────────────────
+// Dots are placed in screen pixels (on #dots-svg which fills the container).
+// We convert SVG-space fountain coords to screen pixels using the current viewBox.
 var DOT_R  = 8;
 var RING_R = 14;
 
 function fountainScreenPos(f) {
-  var dims = floorDims[activeFloor] || { w: 800, h: 600 };
+  var c = document.getElementById('map-container');
+  // SVG position (in natural SVG units)
+  var svgX = (f.x / 100) * svgNatW;
+  var svgY = (f.y / 100) * svgNatH;
+  // Convert to screen pixels using current viewBox
   return {
-    cx: tx + (f.x / 100) * dims.w * scale,
-    cy: ty + (f.y / 100) * dims.h * scale
+    cx: (svgX - vx) / vw * c.clientWidth,
+    cy: (svgY - vy) / vh * c.clientHeight
   };
 }
 
