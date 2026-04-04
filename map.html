@@ -251,6 +251,21 @@ nav {
 <div id="tooltip"></div>
 
 <script>
+
+var SUPABASE_URL = 'https://duqgbeuoudkfvtvdjuqm.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_OIkvFeIySqf_I_Q2aYI-uQ_hU5OG3y1';
+
+function sbFetch(path, options) {
+  return fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    }
+  }, options));
+}
+
 var FLOOR_IMAGES = {
   1: { src: 'img/floorplan1.svg' },
   2: { src: 'img/floorplan2.png' }
@@ -430,6 +445,36 @@ function zoomBy(factor, px, py) {
   vw = newVw;
   vh = newVh;
   applyViewBox();
+}
+
+function loadRatings() {
+  sbFetch('ratings?select=*')
+    .then(function(r) { return r.json(); })
+    .then(function(rows) {
+      // Clear all existing ratings first
+      FOUNTAINS.forEach(function(f) { f.ratings = []; });
+      rows.forEach(function(row) {
+        var f = FOUNTAINS.find(function(f) { return f.id === row.fountain_id; });
+        if (!f) return;
+        f.ratings.push({
+          author:   row.author,
+          fillTime: row.fill_time,
+          note:     row.note,
+          scores: {
+            taste:       row.taste,
+            pressure:    row.pressure,
+            temp:        row.temp,
+            fillSpeed:   row.fill_speed,
+            reliability: row.reliability,
+            cleanliness: row.cleanliness,
+            access:      row.access
+          }
+        });
+      });
+      renderDots();
+      if (activeFountain) renderRatings(activeFountain);
+    })
+    .catch(function(err) { console.error('Failed to load ratings:', err); });
 }
 
 function initPanZoom() {
@@ -828,19 +873,54 @@ function submitRating() {
   var note     = document.getElementById('f-note').value.trim()     || null;
   var scores   = {};
   SLIDER_KEYS.forEach(function(k) { scores[k] = +document.getElementById('sl-' + k).value; });
-  activeFountain.ratings.push({ author: author, scores: scores, fillTime: fillTime, note: note });
-  document.querySelector('.submit-btn').style.display     = 'none';
-  document.getElementById('submit-success').style.display = 'block';
-  setTimeout(function() {
-    renderRatings(activeFountain);
-    renderDots();
-    switchTab('ratings');
-  }, 1200);
+
+  var btn = document.querySelector('.submit-btn');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+
+  sbFetch('ratings', {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({
+      fountain_id: activeFountain.id,
+      author:      author,
+      taste:       scores.taste,
+      pressure:    scores.pressure,
+      temp:        scores.temp,
+      fill_speed:  scores.fillSpeed,
+      reliability: scores.reliability,
+      cleanliness: scores.cleanliness,
+      access:      scores.access,
+      fill_time:   fillTime,
+      note:        note
+    })
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    btn.style.display = 'none';
+    document.getElementById('submit-success').style.display = 'block';
+    setTimeout(function() {
+      loadRatings();
+      switchTab('ratings');
+    }, 1200);
+  })
+  .catch(function(err) {
+    console.error('Failed to submit rating:', err);
+    btn.disabled = false;
+    btn.style.opacity = '';
+    alert('Failed to submit — please try again.');
+  });
 }
 
 // ── Init ──────────────────────────────────────
 initPanZoom();
 loadFloor(1);
+loadRatings();
 
 var f1c = FOUNTAINS.filter(function(f) { return f.floor === 1; }).length;
 document.getElementById('f-count').textContent = f1c + ' fountain' + (f1c !== 1 ? 's' : '');
