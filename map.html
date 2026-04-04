@@ -831,6 +831,10 @@ function submitRating() {
 initPanZoom();
 loadFloor(1);
 
+document.getElementById('detail').addEventListener('transitionend', function(e) {
+  if (e.propertyName === 'width') repositionDots();
+});
+
 var f1c = FOUNTAINS.filter(function(f) { return f.floor === 1; }).length;
 document.getElementById('f-count').textContent = f1c + ' fountain' + (f1c !== 1 ? 's' : '');
 
