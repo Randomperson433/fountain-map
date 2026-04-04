@@ -255,6 +255,9 @@ nav {
 var SUPABASE_URL = 'https://duqgbeuoudkfvtvdjuqm.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_OIkvFeIySqf_I_Q2aYI-uQ_hU5OG3y1';
 
+// Cropped viewBox region — update if you change the SVG crop
+var CROP_X = 460, CROP_Y = 260, CROP_W = 1870, CROP_H = 1650;
+
 function sbFetch(path, options) {
   return fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({
     headers: {
@@ -417,17 +420,17 @@ function applyViewBox() {
 }
 
 function resetView() {
-  if (!svgNatW || svgNatW === 1) return;
   var c  = document.getElementById('map-container');
   var cw = c.clientWidth, ch = c.clientHeight;
   var pad = 40;
-  var scaleX   = (cw - pad * 2) / svgNatW;
-  var scaleY   = (ch - pad * 2) / svgNatH;
+  var scaleX   = (cw - pad * 2) / CROP_W;
+  var scaleY   = (ch - pad * 2) / CROP_H;
   var fitScale = Math.min(scaleX, scaleY);
   vw = cw / fitScale;
   vh = ch / fitScale;
-  vx = (svgNatW - vw) / 2;
-  vy = (svgNatH - vh) / 2;
+  // Center on the cropped region, not the full SVG
+  vx = CROP_X + (CROP_W - vw) / 2;
+  vy = CROP_Y + (CROP_H - vh) / 2;
   applyViewBox();
 }
 
