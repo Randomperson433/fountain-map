@@ -60,10 +60,6 @@ nav {
 }
 #map-container.panning { cursor: grabbing; }
 
-/* The floor SVG is inlined directly into #map-container and fills it.
-   Pan/zoom works by manipulating the SVG viewBox — no CSS transform scaling.
-   This means the browser re-renders the SVG at screen resolution on every
-   zoom level, so it stays perfectly crisp no matter how far you zoom in. */
 #map-container > svg {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
@@ -71,7 +67,6 @@ nav {
   cursor: inherit;
 }
 
-/* Raster fallback image */
 #map-container > img {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
@@ -190,7 +185,9 @@ nav {
     </div>
 
     <div id="map-container">
-      <!-- Floor plan SVG injected here by loadFloor() -->
+      <!-- Floor plan SVG injected here by loadFloor().
+           Dots live inside the floor SVG in SVG coordinate space,
+           so pan/zoom moves everything together for free. -->
       <div class="zoom-btns">
         <button class="zoom-btn" onclick="zoomBy(1.3)">+</button>
         <button class="zoom-btn" onclick="zoomBy(0.77)">-</button>
@@ -371,21 +368,23 @@ function avgFillTime(f) {
 }
 
 // ── Pan / Zoom via SVG viewBox ────────────────
-// Instead of CSS transform (which rasterizes the SVG at layout size then
-// stretches the bitmap), we manipulate the SVG viewBox directly.
+// Pan/zoom works by manipulating the SVG viewBox directly.
 // The browser re-renders the SVG at screen resolution on every change —
-// always crisp, no matter how far you zoom in.
+// always crisp at any zoom level.
+// Dots live inside the floor SVG in the same coordinate space, so they
+// move with the map automatically — no repositioning needed.
+// updateDotScale() counters the zoom on dot radii so they stay a
+// constant visual size on screen regardless of zoom level.
 //
 // State: vx, vy = top-left corner of visible area in SVG units
 //        vw, vh = visible area size in SVG units (smaller = more zoomed in)
-var vx = 0, vy = 0, vw = 1, vh = 1;  // set properly by resetView
-var svgNatW = 1, svgNatH = 1;         // SVG viewBox natural dimensions
+var vx = 0, vy = 0, vw = 1, vh = 1;
+var svgNatW = 1, svgNatH = 1;
 
 var isDragging = false;
 var dragStartX = 0, dragStartY = 0;
 var dragStartVx = 0, dragStartVy = 0;
 
-// Convert a screen pixel position to SVG coordinates
 function screenToSVG(px, py) {
   var c = document.getElementById('map-container');
   return {
@@ -399,6 +398,7 @@ function applyViewBox() {
   if (floorSvg) {
     floorSvg.setAttribute('viewBox', vx + ' ' + vy + ' ' + vw + ' ' + vh);
   }
+  updateDotScale();
 }
 
 function resetView() {
@@ -406,45 +406,29 @@ function resetView() {
   var c  = document.getElementById('map-container');
   var cw = c.clientWidth, ch = c.clientHeight;
   var pad = 40;
-
-  // Fit the full SVG into the container with padding
-  var fitW = svgNatW;
-  var fitH = svgNatH;
-  var scaleX = (cw - pad * 2) / fitW;
-  var scaleY = (ch - pad * 2) / fitH;
+  var scaleX   = (cw - pad * 2) / svgNatW;
+  var scaleY   = (ch - pad * 2) / svgNatH;
   var fitScale = Math.min(scaleX, scaleY);
-
-  // vw/vh: how many SVG units fit in the viewport
   vw = cw / fitScale;
   vh = ch / fitScale;
-
-  // Center the map
   vx = (svgNatW - vw) / 2;
   vy = (svgNatH - vh) / 2;
-
   applyViewBox();
 }
 
 function zoomBy(factor, px, py) {
-  var c  = document.getElementById('map-container');
+  var c = document.getElementById('map-container');
   px = (px !== undefined) ? px : c.clientWidth  / 2;
   py = (py !== undefined) ? py : c.clientHeight / 2;
-
-  // What SVG point is under the mouse?
   var anchor = screenToSVG(px, py);
-
-  // Scale the viewport (smaller vw/vh = more zoomed in)
-  var maxVw = svgNatW * 3;   // max zoom out: 3x the natural size
-  var minVw = svgNatW / 20;  // max zoom in:  20x
-  var newVw = Math.max(minVw, Math.min(maxVw, vw / factor));
-  var newVh = newVw * (c.clientHeight / c.clientWidth);
-
-  // Keep the anchor point fixed on screen
+  var maxVw  = svgNatW * 3;
+  var minVw  = svgNatW / 20;
+  var newVw  = Math.max(minVw, Math.min(maxVw, vw / factor));
+  var newVh  = newVw * (c.clientHeight / c.clientWidth);
   vx = anchor.x - (px / c.clientWidth)  * newVw;
   vy = anchor.y - (py / c.clientHeight) * newVh;
   vw = newVw;
   vh = newVh;
-
   applyViewBox();
 }
 
@@ -466,8 +450,7 @@ function initPanZoom() {
   });
   window.addEventListener('mousemove', function(e) {
     if (!isDragging) return;
-    var c  = document.getElementById('map-container');
-    // Convert pixel delta to SVG units
+    var c = document.getElementById('map-container');
     var dx = (e.clientX - dragStartX) / c.clientWidth  * vw;
     var dy = (e.clientY - dragStartY) / c.clientHeight * vh;
     vx = dragStartVx - dx;
@@ -522,7 +505,6 @@ function loadFloor(n) {
   var container = document.getElementById('map-container');
   var isSVG     = /\.svg$/i.test(cfg.src);
 
-  // Remove old floor SVG/img (but keep dots-svg)
   var old = container.querySelector('.floor-layer');
   if (old) old.parentNode.removeChild(old);
 
@@ -534,54 +516,85 @@ function loadFloor(n) {
     renderDots();
   }
 
+  // Insert before the zoom buttons so it sits behind them in DOM order
+  var zoomBtns = container.querySelector('.zoom-btns');
+
   if (isSVG) {
     fetch(cfg.src)
       .then(function(r) { return r.text(); })
       .then(function(text) {
-        // Read natural viewBox dimensions
         var vb   = text.match(/viewBox=["']\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)/i);
         var natW = vb ? parseFloat(vb[1]) : 1200;
         var natH = vb ? parseFloat(vb[2]) : 900;
 
-        // Strip fixed width/height so the SVG scales via CSS
         text = text.replace(/(<svg[^>]*?)\s+width=["'][^"']*["']/i,  '$1');
         text = text.replace(/(<svg[^>]*?)\s+height=["'][^"']*["']/i, '$1');
 
-        // Parse and insert before dots-svg
         var parser  = new DOMParser();
         var doc     = parser.parseFromString(text, 'image/svg+xml');
         var inlined = doc.documentElement;
         inlined.id  = 'floor-svg';
         inlined.setAttribute('class', 'floor-layer');
-        // viewBox starts at the natural full extent; resetView() will zoom-fit it
         inlined.setAttribute('viewBox', '0 0 ' + natW + ' ' + natH);
         inlined.style.pointerEvents = 'none';
 
-        var dotsSvg = document.getElementById('dots-svg');
-        container.insertBefore(inlined, dotsSvg);
-
+        container.insertBefore(inlined, zoomBtns);
         onReady(natW, natH);
       })
       .catch(function() { onReady(1200, 900); });
   } else {
-    var img = document.createElement('img');
-    img.id        = 'floor-img';
-    img.className = 'floor-layer';
-    img.src       = cfg.src;
-    img.draggable = false;
-    img.onload  = function() { onReady(img.naturalWidth, img.naturalHeight); };
-    img.onerror = function() { onReady(1200, 900); };
-    var dotsSvg = document.getElementById('dots-svg');
-    container.insertBefore(img, dotsSvg);
+    // Raster floors: wrap in an SVG so dots share the same coordinate space
+    var probe = new Image();
+    probe.onload = function() {
+      var natW = probe.naturalWidth  || 1200;
+      var natH = probe.naturalHeight || 900;
+
+      var wrapSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      wrapSvg.id  = 'floor-svg';
+      wrapSvg.setAttribute('class', 'floor-layer');
+      wrapSvg.setAttribute('viewBox', '0 0 ' + natW + ' ' + natH);
+      wrapSvg.style.pointerEvents = 'none';
+
+      var imgEl = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+      imgEl.setAttribute('href',   cfg.src);
+      imgEl.setAttribute('x',      '0');
+      imgEl.setAttribute('y',      '0');
+      imgEl.setAttribute('width',  natW);
+      imgEl.setAttribute('height', natH);
+      wrapSvg.appendChild(imgEl);
+
+      container.insertBefore(wrapSvg, zoomBtns);
+      onReady(natW, natH);
+    };
+    probe.onerror = function() { onReady(1200, 900); };
+    probe.src = cfg.src;
   }
 }
 
 // ── Dots ─────────────────────────────────────
-// Dots are placed in screen pixels (on #dots-svg which fills the container).
-// We convert SVG-space fountain coords to screen pixels using the current viewBox.
+// Dots live inside #floor-svg in SVG coordinate space, so pan/zoom moves
+// them with the map for free. updateDotScale() converts a fixed target pixel
+// size back into SVG units on every viewBox change, keeping dots visually
+// constant regardless of zoom level.
+
+function updateDotScale() {
+  var c = document.getElementById('map-container');
+  if (!c || vw === 1) return;
+  var pxPerUnit = c.clientWidth / vw;
+  var r         =  8 / pxPerUnit;
+  var rRing     = 14 / pxPerUnit;
+  var sw        =  1.5 / pxPerUnit;
+  var swRing    =  2   / pxPerUnit;
+
+  document.querySelectorAll('.f-dot').forEach(function(dot) {
+    var core = dot.querySelector('.f-core');
+    var ring = dot.querySelector('.f-ring');
+    if (core) { core.setAttribute('r', r);     core.setAttribute('stroke-width', sw); }
+    if (ring) { ring.setAttribute('r', rRing); ring.setAttribute('stroke-width', swRing); }
+  });
+}
 
 function renderDots() {
-  // Remove old dot group if present
   var old = document.getElementById('dot-layer');
   if (old) old.parentNode.removeChild(old);
 
@@ -590,6 +603,7 @@ function renderDots() {
 
   var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   g.id = 'dot-layer';
+  g.style.pointerEvents = 'all'; // parent SVG has pointer-events:none; re-enable for dots
 
   FOUNTAINS.filter(function(f) { return f.floor === activeFloor; }).forEach(function(f) {
     var overall = fountainAvgs(f).overall;
@@ -600,35 +614,43 @@ function renderDots() {
     var dot = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     dot.setAttribute('class', 'f-dot');
     dot.setAttribute('data-id', f.id);
-    dot.style.pointerEvents = 'all';
     dot.style.cursor = 'pointer';
 
+    // Placeholder r="1"; updateDotScale() sets the real value immediately after
     var ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     ring.setAttribute('class', 'f-ring');
     ring.setAttribute('cx', svgX); ring.setAttribute('cy', svgY);
-    ring.setAttribute('r', svgNatW * 0.014);
-    ring.setAttribute('stroke', col); ring.setAttribute('stroke-width', svgNatW * 0.003);
-    ring.setAttribute('fill', 'none'); ring.setAttribute('opacity', '0');
+    ring.setAttribute('r', 1);
+    ring.setAttribute('stroke', col);
+    ring.setAttribute('fill', 'none');
+    ring.setAttribute('opacity', '0');
 
     var core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     core.setAttribute('class', 'f-core');
     core.setAttribute('cx', svgX); core.setAttribute('cy', svgY);
-    core.setAttribute('r', svgNatW * 0.008);
+    core.setAttribute('r', 1);
     core.setAttribute('fill', col);
-    core.setAttribute('stroke', 'white'); core.setAttribute('stroke-width', svgNatW * 0.002);
+    core.setAttribute('stroke', 'white');
 
     dot.appendChild(ring);
     dot.appendChild(core);
 
-    dot.addEventListener('mouseenter', function(e) { showTip(e, f); ring.setAttribute('opacity', '0.55'); });
+    dot.addEventListener('mouseenter', function(e) {
+      showTip(e, f);
+      ring.setAttribute('opacity', '0.55');
+    });
     dot.addEventListener('mousemove',  moveTip);
-    dot.addEventListener('mouseleave', function()  { hideTip();       if (!dot.classList.contains('active')) ring.setAttribute('opacity', '0'); });
+    dot.addEventListener('mouseleave', function() {
+      hideTip();
+      if (!dot.classList.contains('active')) ring.setAttribute('opacity', '0');
+    });
     dot.addEventListener('click', function(e) { e.stopPropagation(); openDetail(f); });
 
     g.appendChild(dot);
   });
 
   floorSvg.appendChild(g);
+  updateDotScale(); // size dots correctly for the current zoom level
 }
 
 // ── Floor switching ───────────────────────────
@@ -685,11 +707,17 @@ var activeFountain = null;
 function openDetail(f) {
   hideTip();
   activeFountain = f;
-  var dots = document.querySelectorAll('.f-dot');
-  for (var i = 0; i < dots.length; i++) dots[i].classList.remove('active');
-  document.querySelector('.f-dot[data-id="' + f.id + '"]').classList.add('active');
+  // Deactivate any previously highlighted dot
+  document.querySelectorAll('.f-dot').forEach(function(d) {
+    d.classList.remove('active');
+    d.querySelector('.f-ring').setAttribute('opacity', '0');
+  });
+  // Highlight the newly selected dot
   var activeDot = document.querySelector('.f-dot[data-id="' + f.id + '"]');
-if (activeDot) activeDot.querySelector('.f-ring').setAttribute('opacity', '0.55');
+  if (activeDot) {
+    activeDot.classList.add('active');
+    activeDot.querySelector('.f-ring').setAttribute('opacity', '0.55');
+  }
   document.getElementById('d-name').textContent = f.name;
   document.getElementById('d-loc').textContent  = f.location;
   switchTab('ratings');
@@ -705,9 +733,9 @@ function renderRatings(f) {
   if (!f.ratings.length) {
     sn.textContent = '-';
     sn.style.color = 'var(--text3)';
-    document.getElementById('d-meta').textContent    = 'no ratings yet';
-    document.getElementById('d-bars').innerHTML      = '';
-    document.getElementById('d-reviews').innerHTML   = '';
+    document.getElementById('d-meta').textContent  = 'no ratings yet';
+    document.getElementById('d-bars').innerHTML    = '';
+    document.getElementById('d-reviews').innerHTML = '';
     return;
   }
   sn.textContent = avgs.overall.toFixed(1);
@@ -715,7 +743,7 @@ function renderRatings(f) {
   document.getElementById('d-meta').textContent =
     f.ratings.length + ' rating' + (f.ratings.length !== 1 ? 's' : '');
 
-  var ft      = avgFillTime(f);
+  var ft       = avgFillTime(f);
   var barsHTML = '';
   CATEGORIES.forEach(function(c) {
     var v = avgs.catAvgs[c.key];
