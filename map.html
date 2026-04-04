@@ -79,9 +79,6 @@ nav {
 }
 
 .f-dot { cursor: pointer; }
-.f-dot .f-ring { fill: none; opacity: 0; transition: opacity 0.12s; }
-.f-dot .f-core { stroke: white; }
-.f-dot:hover .f-ring, .f-dot.active .f-ring { opacity: 0.55; }
 
 .zoom-btns { position: absolute; bottom: 14px; left: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
 .zoom-btn { width: 30px; height: 30px; background: var(--white); border: 1px solid var(--border2); border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); font-size: 16px; line-height: 1; transition: background 0.12s; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
@@ -194,8 +191,6 @@ nav {
 
     <div id="map-container">
       <!-- Floor plan SVG injected here by loadFloor() -->
-      <svg id="dots-svg" xmlns="http://www.w3.org/2000/svg"
-           style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:5;"></svg>
       <div class="zoom-btns">
         <button class="zoom-btn" onclick="zoomBy(1.3)">+</button>
         <button class="zoom-btn" onclick="zoomBy(0.77)">-</button>
@@ -404,7 +399,6 @@ function applyViewBox() {
   if (floorSvg) {
     floorSvg.setAttribute('viewBox', vx + ' ' + vy + ' ' + vw + ' ' + vh);
   }
-  repositionDots();
 }
 
 function resetView() {
@@ -585,75 +579,56 @@ function loadFloor(n) {
 // ── Dots ─────────────────────────────────────
 // Dots are placed in screen pixels (on #dots-svg which fills the container).
 // We convert SVG-space fountain coords to screen pixels using the current viewBox.
-var DOT_R  = 8;
-var RING_R = 14;
-
-function fountainScreenPos(f) {
-  var c = document.getElementById('map-container');
-  // SVG position (in natural SVG units)
-  var svgX = (f.x / 100) * svgNatW;
-  var svgY = (f.y / 100) * svgNatH;
-  // Convert to screen pixels using current viewBox
-  return {
-    cx: (svgX - vx) / vw * c.clientWidth,
-    cy: (svgY - vy) / vh * c.clientHeight
-  };
-}
 
 function renderDots() {
-  var svg = document.getElementById('dots-svg');
-  svg.innerHTML = '';
+  // Remove old dot group if present
+  var old = document.getElementById('dot-layer');
+  if (old) old.parentNode.removeChild(old);
+
+  var floorSvg = document.getElementById('floor-svg');
+  if (!floorSvg) return;
+
+  var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.id = 'dot-layer';
 
   FOUNTAINS.filter(function(f) { return f.floor === activeFloor; }).forEach(function(f) {
     var overall = fountainAvgs(f).overall;
     var col     = scoreColor(overall);
-    var pos     = fountainScreenPos(f);
+    var svgX    = (f.x / 100) * svgNatW;
+    var svgY    = (f.y / 100) * svgNatH;
 
-    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', 'f-dot');
-    g.setAttribute('data-id', f.id);
-    g.style.pointerEvents = 'all';
+    var dot = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    dot.setAttribute('class', 'f-dot');
+    dot.setAttribute('data-id', f.id);
+    dot.style.pointerEvents = 'all';
+    dot.style.cursor = 'pointer';
 
     var ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     ring.setAttribute('class', 'f-ring');
-    ring.setAttribute('cx', pos.cx);       ring.setAttribute('cy', pos.cy);
-    ring.setAttribute('r',  RING_R);       ring.setAttribute('stroke', col);
-    ring.setAttribute('stroke-width', 2);
+    ring.setAttribute('cx', svgX); ring.setAttribute('cy', svgY);
+    ring.setAttribute('r', svgNatW * 0.014);
+    ring.setAttribute('stroke', col); ring.setAttribute('stroke-width', svgNatW * 0.003);
+    ring.setAttribute('fill', 'none'); ring.setAttribute('opacity', '0');
 
     var core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     core.setAttribute('class', 'f-core');
-    core.setAttribute('cx', pos.cx);       core.setAttribute('cy', pos.cy);
-    core.setAttribute('r',  DOT_R);        core.setAttribute('fill', col);
-    core.setAttribute('stroke', 'white');  core.setAttribute('stroke-width', 1.5);
+    core.setAttribute('cx', svgX); core.setAttribute('cy', svgY);
+    core.setAttribute('r', svgNatW * 0.008);
+    core.setAttribute('fill', col);
+    core.setAttribute('stroke', 'white'); core.setAttribute('stroke-width', svgNatW * 0.002);
 
-    g.appendChild(ring);
-    g.appendChild(core);
+    dot.appendChild(ring);
+    dot.appendChild(core);
 
-    g.addEventListener('mouseenter', function(e) { showTip(e, f); });
-    g.addEventListener('mousemove',  moveTip);
-    g.addEventListener('mouseleave', hideTip);
-    g.addEventListener('click', function(e) { e.stopPropagation(); openDetail(f); });
+    dot.addEventListener('mouseenter', function(e) { showTip(e, f); ring.setAttribute('opacity', '0.55'); });
+    dot.addEventListener('mousemove',  moveTip);
+    dot.addEventListener('mouseleave', function()  { hideTip();       if (!dot.classList.contains('active')) ring.setAttribute('opacity', '0'); });
+    dot.addEventListener('click', function(e) { e.stopPropagation(); openDetail(f); });
 
-    svg.appendChild(g);
+    g.appendChild(dot);
   });
-}
 
-function repositionDots() {
-  var dots = document.querySelectorAll('.f-dot');
-  for (var i = 0; i < dots.length; i++) {
-    var fid = dots[i].getAttribute('data-id');
-    var f   = null;
-    for (var j = 0; j < FOUNTAINS.length; j++) {
-      if (FOUNTAINS[j].id === fid) { f = FOUNTAINS[j]; break; }
-    }
-    if (!f) continue;
-    var pos     = fountainScreenPos(f);
-    var circles = dots[i].querySelectorAll('circle');
-    for (var k = 0; k < circles.length; k++) {
-      circles[k].setAttribute('cx', pos.cx);
-      circles[k].setAttribute('cy', pos.cy);
-    }
-  }
+  floorSvg.appendChild(g);
 }
 
 // ── Floor switching ───────────────────────────
@@ -713,6 +688,8 @@ function openDetail(f) {
   var dots = document.querySelectorAll('.f-dot');
   for (var i = 0; i < dots.length; i++) dots[i].classList.remove('active');
   document.querySelector('.f-dot[data-id="' + f.id + '"]').classList.add('active');
+  var activeDot = document.querySelector('.f-dot[data-id="' + f.id + '"]');
+if (activeDot) activeDot.querySelector('.f-ring').setAttribute('opacity', '0.55');
   document.getElementById('d-name').textContent = f.name;
   document.getElementById('d-loc').textContent  = f.location;
   switchTab('ratings');
@@ -773,8 +750,10 @@ function renderRatings(f) {
 
 function closeDetail() {
   document.getElementById('detail').classList.remove('open');
-  var dots = document.querySelectorAll('.f-dot');
-  for (var i = 0; i < dots.length; i++) dots[i].classList.remove('active');
+  document.querySelectorAll('.f-dot').forEach(function(d) {
+    d.classList.remove('active');
+    d.querySelector('.f-ring').setAttribute('opacity', '0');
+  });
   activeFountain = null;
   setTimeout(function() {
     document.getElementById('detail-content').style.display = 'none';
@@ -830,10 +809,6 @@ function submitRating() {
 // ── Init ──────────────────────────────────────
 initPanZoom();
 loadFloor(1);
-
-document.getElementById('detail').addEventListener('transitionend', function(e) {
-  if (e.propertyName === 'width') repositionDots();
-});
 
 var f1c = FOUNTAINS.filter(function(f) { return f.floor === 1; }).length;
 document.getElementById('f-count').textContent = f1c + ' fountain' + (f1c !== 1 ? 's' : '');
