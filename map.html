@@ -738,9 +738,10 @@ function renderDots() {
   FOUNTAINS.filter(function(f) { return f.floor === activeFloor; }).forEach(function(f) {
     var score = getFountainScore(f, rankingsOpen ? rankSortKey : 'overall');
     var col   = scoreColor(score);
-    var svgX    = (f.x / 100) * svgNatW;
-    var svgY    = (f.y / 100) * svgNatH;
-
+    var SVG_ORIGIN_X = 460;
+    var SVG_ORIGIN_Y = 220;
+    var svgX = SVG_ORIGIN_X + (f.x / 100) * svgNatW;
+    var svgY = SVG_ORIGIN_Y + (f.y / 100) * svgNatH;    
     var dot = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     dot.setAttribute('class', 'f-dot');
     dot.setAttribute('data-id', f.id);
@@ -1098,8 +1099,8 @@ function onRankClick(id) {
 
 function zoomToFountain(f) {
   var c       = document.getElementById('map-container');
-  var svgX    = (f.x / 100) * svgNatW;
-  var svgY    = (f.y / 100) * svgNatH;
+  var svgX = SVG_ORIGIN_X + (f.x / 100) * svgNatW;
+  var svgY = SVG_ORIGIN_Y + (f.y / 100) * svgNatH;
   // Zoom in to a comfortable level centered on the fountain
   var targetVw = svgNatW / 6;
   var targetVh = targetVw * (c.clientHeight / c.clientWidth);
