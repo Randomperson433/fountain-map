@@ -150,57 +150,72 @@ nav {
 
 .rank-btn {
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em;
-  padding: 4px 12px; background: none; border: 1px solid var(--border2);
-  border-radius: 5px; cursor: pointer; color: var(--text2);
+  padding: 5px 12px; background: none; border: 1px solid var(--border2);
+  border-radius: 4px; cursor: pointer; color: var(--text2);
   transition: background 0.15s, color 0.15s;
 }
 .rank-btn.active { background: var(--text); color: var(--white); border-color: var(--text); }
 
-#rankings-panel {
-  position: absolute; top: calc(var(--toolbar-h)); left: 0; right: 0;
-  background: var(--white); border-bottom: 1px solid var(--border);
-  z-index: 20; display: none; flex-direction: column;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+#rankings-sidebar {
+  width: 0; overflow: hidden; border-right: 1px solid var(--border);
+  background: var(--white); display: flex; flex-direction: column;
+  transition: width 0.32s cubic-bezier(0.4,0,0.2,1); flex-shrink: 0;
+  order: -1;
 }
-#rankings-panel.open { display: flex; }
+#rankings-sidebar.open { width: var(--panel-w); }
+#rankings-sidebar > * { width: var(--panel-w); }
 
-.rank-sort-bar {
-  display: flex; align-items: center; gap: 6px;
-  padding: 10px 14px; border-bottom: 1px solid var(--border);
-  overflow-x: auto; flex-shrink: 0;
+.rs-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.rs-title { font-family: var(--serif); font-size: 18px; }
+.rs-close {
+  font-family: var(--mono); font-size: 13px; background: none; border: none;
+  cursor: pointer; color: var(--text3); padding: 0;
+}
+.rs-close:hover { color: var(--text); }
+
+.rs-floor-bar {
+  display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.rs-floor-btn {
+  flex: 1; padding: 8px 0; text-align: center;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  color: var(--text3); cursor: pointer; border: none; background: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.rs-floor-btn:hover { color: var(--text2); }
+.rs-floor-btn.active { color: var(--text); border-bottom-color: var(--text); }
+
+.rs-sort-bar {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
 .rank-sort-btn {
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
-  padding: 4px 10px; background: none; border: 1px solid var(--border2);
-  border-radius: 4px; cursor: pointer; color: var(--text3); white-space: nowrap;
+  padding: 4px 9px; background: none; border: 1px solid var(--border2);
+  border-radius: 4px; cursor: pointer; color: var(--text3);
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
-.rank-sort-btn.active {
-  background: var(--text); color: var(--white); border-color: var(--text);
-}
-.rank-list { overflow-y: auto; max-height: 280px; }
+.rank-sort-btn.active { background: var(--text); color: var(--white); border-color: var(--text); }
+
+.rank-list { overflow-y: auto; flex: 1; }
 .rank-item {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   padding: 10px 14px; border-bottom: 1px solid var(--border);
   cursor: pointer; transition: background 0.12s;
 }
 .rank-item:hover { background: var(--bg); }
 .rank-item:last-child { border-bottom: none; }
-.rank-num {
-  font-family: var(--mono); font-size: 11px; color: var(--text3);
-  min-width: 18px; text-align: right;
-}
+.rank-num { font-family: var(--mono); font-size: 11px; color: var(--text3); min-width: 18px; text-align: right; }
 .rank-info { flex: 1; min-width: 0; }
-.rank-name { font-family: var(--serif); font-size: 15px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rank-loc { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 1px; }
-.rank-score {
-  font-family: var(--mono); font-size: 16px; font-weight: 500;
-  min-width: 36px; text-align: right;
-}
-.rank-no-ratings {
-  font-family: var(--mono); font-size: 11px; color: var(--text3);
-  padding: 20px; text-align: center;
-}
+.rank-name { font-family: var(--serif); font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-loc { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-floor-tag { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 2px; }
+.rank-score { font-family: var(--mono); font-size: 15px; font-weight: 500; min-width: 34px; text-align: right; }
+.rank-no-ratings { font-family: var(--mono); font-size: 11px; color: var(--text3); padding: 20px; text-align: center; }
 </style>
 </head>
 <body>
@@ -209,11 +224,25 @@ nav {
   <a href="index.html" class="nav-brand"><span class="water-word">water</span> Fountain Map</a>
   <div class="nav-right">
     <span class="nav-tag" id="nav-floor-tag">Level 1 · SHS</span>
-    <a href="index.html" class="nav-back">← home</a>
+    <button class="rank-btn" id="rank-btn" onclick="toggleRankings()">Rankings</button>
+    <a href="index.html" class="nav-back">home</a>
   </div>
 </nav>
 
 <div id="layout">
+  <div id="rankings-sidebar">
+    <div class="rs-head">
+      <span class="rs-title">Rankings</span>
+      <button class="rs-close" onclick="toggleRankings()">✕</button>
+    </div>
+    <div class="rs-floor-bar">
+      <button class="rs-floor-btn active" id="rfbtn-all" onclick="setRankFloor('all')">All</button>
+      <button class="rs-floor-btn" id="rfbtn-1" onclick="setRankFloor(1)">Level 1</button>
+      <button class="rs-floor-btn" id="rfbtn-2" onclick="setRankFloor(2)">Level 2</button>
+    </div>
+    <div class="rs-sort-bar" id="rank-sort-bar"></div>
+    <div class="rank-list" id="rank-list"></div>
+  </div>
   <div id="map-area">
     <div class="toolbar">
       <div class="tb-left">
@@ -221,7 +250,6 @@ nav {
           <button class="floor-btn active" id="fbtn-1" onclick="switchFloor(1)">Level 1</button>
           <button class="floor-btn" id="fbtn-2" onclick="switchFloor(2)">Level 2</button>
         </div>
-        <button class="rank-btn" id="rank-btn" onclick="toggleRankings()">Rankings</button>
         <div class="legend">
           <div class="leg-wrap">
             <div class="leg-grad"></div>
@@ -237,11 +265,6 @@ nav {
         </div>
       </div>
       <span class="tb-label" id="f-count"></span>
-    </div>
-
-    <div id="rankings-panel">  
-      <div class="rank-sort-bar" id="rank-sort-bar"></div>
-      <div class="rank-list" id="rank-list"></div>
     </div>
 
     <div id="map-container">
@@ -314,9 +337,6 @@ nav {
 
 var SUPABASE_URL = 'https://duqgbeuoudkfvtvdjuqm.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_OIkvFeIySqf_I_Q2aYI-uQ_hU5OG3y1';
-
-// Cropped viewBox region — update if you change the SVG crop
-var CROP_X = 460, CROP_Y = 260, CROP_W = 1870, CROP_H = 1650;
 
 function sbFetch(path, options) {
   return fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({
@@ -711,8 +731,8 @@ function renderDots() {
   g.style.pointerEvents = 'all'; // parent SVG has pointer-events:none; re-enable for dots
 
   FOUNTAINS.filter(function(f) { return f.floor === activeFloor; }).forEach(function(f) {
-    var overall = fountainAvgs(f).overall;
-    var col     = scoreColor(overall);
+    var score = getFountainScore(f, rankingsOpen ? rankSortKey : 'overall');
+    var col   = scoreColor(score);
     var svgX    = (f.x / 100) * svgNatW;
     var svgY    = (f.y / 100) * svgNatH;
 
@@ -973,9 +993,10 @@ function submitRating() {
   });
 }
 
-// ── Rankings ──────────────────────────────────
-var rankingsOpen = false;
-var rankSortKey  = 'overall';
+// ── Rankings ─────────────────────────────────
+var rankingsOpen  = false;
+var rankSortKey   = 'overall';
+var rankFloorFilter = 'all';
 
 var RANK_SORTS = [
   { key: 'overall',     label: 'Overall' },
@@ -985,74 +1006,103 @@ var RANK_SORTS = [
   { key: 'fillSpeed',   label: 'Fill speed' },
   { key: 'consistency', label: 'Consistency' },
   { key: 'cleanliness', label: 'Cleanliness' },
-  { key: 'access',      label: 'Accessibility' }
+  { key: 'access',      label: 'Access' }
 ];
 
 function toggleRankings() {
   rankingsOpen = !rankingsOpen;
   document.getElementById('rank-btn').classList.toggle('active', rankingsOpen);
-  document.getElementById('rankings-panel').classList.toggle('open', rankingsOpen);
+  document.getElementById('rankings-sidebar').classList.toggle('open', rankingsOpen);
   if (rankingsOpen) renderRankings();
 }
 
-function renderRankings() {
-  // Sort bar
-  var sortBar = document.getElementById('rank-sort-bar');
-  sortBar.innerHTML = RANK_SORTS.map(function(s) {
-    return '<button class="rank-sort-btn' + (rankSortKey === s.key ? ' active' : '') +
-      '" onclick="setRankSort(\'' + s.key + '\')">' + s.label + '</button>';
-  }).join('');
-
-  // Ranked list — only fountains on current floor with ratings
-  var fountains = FOUNTAINS.filter(function(f) {
-    return f.floor === activeFloor && f.ratings.length > 0;
+function setRankFloor(f) {
+  rankFloorFilter = f;
+  ['all', 1, 2].forEach(function(v) {
+    document.getElementById('rfbtn-' + v).classList.toggle('active', v === f);
   });
-
-  if (!fountains.length) {
-    document.getElementById('rank-list').innerHTML =
-      '<div class="rank-no-ratings">No rated fountains on this floor yet.</div>';
-    return;
-  }
-
-  fountains.sort(function(a, b) {
-    var sa = getFountainScore(a, rankSortKey);
-    var sb = getFountainScore(b, rankSortKey);
-    return sb - sa;
-  });
-
-  document.getElementById('rank-list').innerHTML = fountains.map(function(f, i) {
-    var score  = getFountainScore(f, rankSortKey);
-    var color  = scoreColor(score);
-    return '<div class="rank-item" onclick="onRankClick(\'' + f.id + '\')">' +
-      '<div class="rank-num">' + (i + 1) + '</div>' +
-      '<div class="rank-info">' +
-        '<div class="rank-name">' + f.name + '</div>' +
-        '<div class="rank-loc">' + f.location + '</div>' +
-      '</div>' +
-      '<div class="rank-score" style="color:' + color + '">' + score.toFixed(1) + '</div>' +
-    '</div>';
-  }).join('');
-}
-
-function getFountainScore(f, key) {
-  var avgs = fountainAvgs(f);
-  if (key === 'overall') return avgs.overall;
-  return avgs.catAvgs[key] || 0;
+  renderRankings();
 }
 
 function setRankSort(key) {
   rankSortKey = key;
   renderRankings();
+  // Recolor dots to reflect the new factor
+  renderDots();
+}
+
+function getFountainScore(f, key) {
+  var avgs = fountainAvgs(f);
+  return key === 'overall' ? avgs.overall : (avgs.catAvgs[key] || 0);
+}
+
+function renderRankings() {
+  // Sort buttons
+  document.getElementById('rank-sort-bar').innerHTML = RANK_SORTS.map(function(s) {
+    return '<button class="rank-sort-btn' + (rankSortKey === s.key ? ' active' : '') +
+      '" onclick="setRankSort(\'' + s.key + '\')">' + s.label + '</button>';
+  }).join('');
+
+  // Filter by floor
+  var fountains = FOUNTAINS.filter(function(f) {
+    var hasRatings = f.ratings.length > 0;
+    if (rankFloorFilter === 'all') return hasRatings;
+    return f.floor === rankFloorFilter && hasRatings;
+  });
+
+  if (!fountains.length) {
+    document.getElementById('rank-list').innerHTML =
+      '<div class="rank-no-ratings">No rated fountains yet.</div>';
+    return;
+  }
+
+  fountains.sort(function(a, b) {
+    return getFountainScore(b, rankSortKey) - getFountainScore(a, rankSortKey);
+  });
+
+  document.getElementById('rank-list').innerHTML = fountains.map(function(f, i) {
+    var score = getFountainScore(f, rankSortKey);
+    var col   = scoreColor(score);
+    var floorTag = rankFloorFilter === 'all' ? '<div class="rank-floor-tag">Level ' + f.floor + '</div>' : '';
+    return '<div class="rank-item" onclick="onRankClick(\'' + f.id + '\')">' +
+      '<div class="rank-num">' + (i + 1) + '</div>' +
+      '<div class="rank-info">' +
+        '<div class="rank-name">' + f.name + '</div>' +
+        '<div class="rank-loc">' + f.location + '</div>' +
+        floorTag +
+      '</div>' +
+      '<div class="rank-score" style="color:' + col + '">' + score.toFixed(1) + '</div>' +
+    '</div>';
+  }).join('');
 }
 
 function onRankClick(id) {
-  var f = null;
-  for (var i = 0; i < FOUNTAINS.length; i++) {
-    if (FOUNTAINS[i].id === id) { f = FOUNTAINS[i]; break; }
-  }
+  var f = FOUNTAINS.find(function(f) { return f.id === id; });
   if (!f) return;
-  toggleRankings();
-  openDetail(f);
+  if (f.floor !== activeFloor) {
+    switchFloor(f.floor);
+    setTimeout(function() {
+      zoomToFountain(f);
+      openDetail(f);
+    }, 600); // slightly longer to let SVG fully load
+  } else {
+    zoomToFountain(f);
+    openDetail(f);
+  }
+}
+
+function zoomToFountain(f) {
+  var c       = document.getElementById('map-container');
+  var svgX    = (f.x / 100) * svgNatW;
+  var svgY    = (f.y / 100) * svgNatH;
+  // Zoom in to a comfortable level centered on the fountain
+  var targetVw = svgNatW / 6;
+  var targetVh = targetVw * (c.clientHeight / c.clientWidth);
+  vx = svgX - targetVw / 2;
+  vy = svgY - targetVh / 2;
+  vw = targetVw;
+  vh = targetVh;
+  applyViewBox();
 }
 
 // ── Init ──────────────────────────────────────
