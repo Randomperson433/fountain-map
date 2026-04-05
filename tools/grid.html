@@ -227,9 +227,10 @@ header {
 
 <script>
 // ── Floor plan dimensions ─────────────────────
-// Update these to match your SVG's viewBox width/height
-var NAT_W = 1840;
-var NAT_H = 1640;
+var SVG_X = 460;   // viewBox origin x
+var SVG_Y = 220;   // viewBox origin y
+var NAT_W = 460 + 1840;  // = 2300  (full x extent)
+var NAT_H = 220 + 1640;  // = 1860  (full y extent)
 var FLOOR_SRC = '../img/floorplan1.svg';
 
 // ── Pan/zoom state (same viewBox approach as map.html) ────────────────
@@ -248,9 +249,14 @@ function screenToSVG(px, py) {
 
 // Convert SVG coords back to percentage of full image
 function svgToPct(sx, sy) {
+  // map.html's svgNatW/H come from the viewBox w/h (1840, 1640)
+  // and dots are placed as (x/100)*svgNatW, so we need coords
+  // relative to the viewBox origin (460, 220)
+  var relX = sx - SVG_X;
+  var relY = sy - SVG_Y;
   return {
-    x: +Math.max(0, Math.min(100, (sx / NAT_W) * 100)).toFixed(1),
-    y: +Math.max(0, Math.min(100, (sy / NAT_H) * 100)).toFixed(1)
+    x: +Math.max(0, Math.min(100, (relX / 1840) * 100)).toFixed(1),
+    y: +Math.max(0, Math.min(100, (relY / 1640) * 100)).toFixed(1)
   };
 }
 
@@ -263,16 +269,17 @@ function resetView() {
   var c  = document.getElementById('map-wrap');
   var cw = c.clientWidth, ch = c.clientHeight;
   var pad = 40;
-  var scaleX   = (cw - pad * 2) / NAT_W;
-  var scaleY   = (ch - pad * 2) / NAT_H;
+  // Fit the content region (the viewBox crop), not the whole 0→NAT_W space
+  var cropW = 1840, cropH = 1640;
+  var scaleX   = (cw - pad * 2) / cropW;
+  var scaleY   = (ch - pad * 2) / cropH;
   var fitScale = Math.min(scaleX, scaleY);
   vw = cw / fitScale;
   vh = ch / fitScale;
-  vx = (NAT_W - vw) / 2;
-  vy = (NAT_H - vh) / 2;
+  vx = SVG_X + (cropW - vw) / 2;
+  vy = SVG_Y + (cropH - vh) / 2;
   applyViewBox();
 }
-
 function zoomBy(factor, px, py) {
   var c = document.getElementById('map-wrap');
   px = (px !== undefined) ? px : c.clientWidth  / 2;
