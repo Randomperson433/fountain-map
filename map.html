@@ -313,11 +313,19 @@ nav {
           <div class="field"><div class="field-label">Pressure<span class="score-preview" id="prev-pressure">5.0</span></div><input class="score-slider" id="sl-pressure" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('pressure',this.value)"/></div>
           <div class="field"><div class="field-label">Temperature<span class="score-preview" id="prev-temp">5.0</span></div><input class="score-slider" id="sl-temp" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('temp',this.value)"/></div>
           <div class="field">
-            <div class="field-label">Bottle fill speed</div>
-            <div class="fill-time-group">
-              <div class="fill-time-input-wrap"><span class="fill-sub-label">Time (stopwatch)</span><input class="time-input" id="f-filltime" type="text" placeholder="e.g. 12.4s" autocomplete="off"/></div>
-              <div class="fill-time-input-wrap"><span class="fill-sub-label">Score (0-10) <span id="prev-fillSpeed" style="font-weight:500">5.0</span></span><input class="score-slider" id="sl-fillSpeed" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('fillSpeed',this.value)" style="margin-top:6px"/></div>
+            <div class="field-label" style="margin-bottom:8px;">Bottle fill speed
+              <label style="display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:0.05em;cursor:pointer;font-weight:normal;">
+                <input type="checkbox" id="has-fill" checked onchange="toggleFillField()" style="accent-color:var(--text);cursor:pointer;"/>
+                has fill station
+              </label>
             </div>
+            <div id="fill-field">
+              <div class="fill-time-group">
+                <div class="fill-time-input-wrap"><span class="fill-sub-label">Time (stopwatch)</span><input class="time-input" id="f-filltime" type="text" placeholder="e.g. 12.4s" autocomplete="off"/></div>
+                <div class="fill-time-input-wrap"><span class="fill-sub-label">Score (0-10) <span id="prev-fillSpeed" style="font-weight:500">5.0</span></span><input class="score-slider" id="sl-fillSpeed" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('fillSpeed',this.value)" style="margin-top:6px"/></div>
+              </div>
+            </div>
+            <div id="no-fill-msg" style="display:none;font-family:var(--mono);font-size:10px;color:var(--text3);padding:4px 0;">fill speed not rated for this fountain</div>
           </div>
           <div class="field"><div class="field-label">Consistency<span class="score-preview" id="prev-consistency">5.0</span></div><input class="score-slider" id="sl-consistency" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('consistency',this.value)"/></div>
           <div class="field"><div class="field-label">Cleanliness<span class="score-preview" id="prev-cleanliness">5.0</span></div><input class="score-slider" id="sl-cleanliness" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('cleanliness',this.value)"/></div>
@@ -481,9 +489,16 @@ function fountainAvgs(f) {
   }
   var ca = {};
   CATEGORIES.forEach(function(c) {
-    ca[c.key] = avg(f.ratings.map(function(r) { return r.scores[c.key]; }));
+    var vals = f.ratings
+      .map(function(r) { return r.scores[c.key]; })
+      .filter(function(v) { return v !== null && v !== undefined && !isNaN(v); });
+    ca[c.key] = vals.length ? avg(vals) : null;
   });
-  return { catAvgs: ca, overall: avg(CATEGORIES.map(function(c) { return ca[c.key]; })) };
+  var scoredCats = CATEGORIES.filter(function(c) { return ca[c.key] !== null; });
+  var overall = scoredCats.length
+    ? avg(scoredCats.map(function(c) { return ca[c.key]; }))
+    : 0;
+  return { catAvgs: ca, overall: overall };
 }
 
 function scoreColor(s) {
@@ -881,6 +896,12 @@ function hideTip() { tip.style.display = 'none'; }
 // ── Detail panel ──────────────────────────────
 var activeFountain = null;
 
+function toggleFillField() {
+  var hasFill = document.getElementById('has-fill').checked;
+  document.getElementById('fill-field').style.display  = hasFill ? 'block' : 'none';
+  document.getElementById('no-fill-msg').style.display = hasFill ? 'none'  : 'block';
+}
+
 function openDetail(f) {
   hideTip();
   activeFountain = f;
@@ -924,6 +945,7 @@ function renderRatings(f) {
   var barsHTML = '';
   CATEGORIES.forEach(function(c) {
     var v = avgs.catAvgs[c.key];
+    if (v === null) return;
     barsHTML += '<div class="bar-row">';
     barsHTML += '<div class="bar-meta"><span class="bn">' + c.label + '</span>';
     barsHTML += '<span class="bv" style="color:' + scoreColor(v) + '">' + v.toFixed(1) + '</span></div>';
@@ -937,12 +959,16 @@ function renderRatings(f) {
 
   var revHTML = '';
   f.ratings.forEach(function(r) {
-    var ro = avg(CATEGORIES.map(function(c) { return r.scores[c.key]; }));
+    var scoredVals = CATEGORIES
+      .map(function(c) { return r.scores[c.key]; })
+      .filter(function(v) { return v !== null && v !== undefined && !isNaN(v); });
+    var ro = scoredVals.length ? avg(scoredVals) : 0;
     revHTML += '<div class="review">';
     revHTML += '<div class="r-top"><span class="r-author">' + r.author + '</span>';
     revHTML += '<span class="r-score" style="color:' + scoreColor(ro) + '">' + ro.toFixed(1) + '</span></div>';
     revHTML += '<div class="r-chips">';
     CATEGORIES.forEach(function(c) {
+      if (r.scores[c.key] === null || r.scores[c.key] === undefined) return;
       revHTML += '<span class="r-chip">' + c.label.slice(0,4).toLowerCase() + ' ' + r.scores[c.key] + '</span>';
     });
     if (r.fillTime) revHTML += '<span class="r-chip fill-chip">&#9201; ' + r.fillTime + '</span>';
@@ -990,6 +1016,9 @@ function resetForm() {
   document.getElementById('f-author').value   = '';
   document.getElementById('f-filltime').value = '';
   document.getElementById('f-note').value     = '';
+  document.getElementById('has-fill').checked = true;
+  document.getElementById('fill-field').style.display  = 'block';
+  document.getElementById('no-fill-msg').style.display = 'none';
   document.getElementById('submit-success').style.display = 'none';
   document.querySelector('.submit-btn').style.display     = 'block';
 }
@@ -997,7 +1026,8 @@ function resetForm() {
 function submitRating() {
   if (!activeFountain) return;
   var author   = document.getElementById('f-author').value.trim()   || 'anonymous';
-  var fillTime = document.getElementById('f-filltime').value.trim() || null;
+  var hasFill  = document.getElementById('has-fill').checked;
+  var fillTime = hasFill ? (document.getElementById('f-filltime').value.trim() || null) : null;
   var note     = document.getElementById('f-note').value.trim()     || null;
   var scores   = {};
   SLIDER_KEYS.forEach(function(k) { scores[k] = +document.getElementById('sl-' + k).value; });
@@ -1020,7 +1050,7 @@ function submitRating() {
       taste:       scores.taste,
       pressure:    scores.pressure,
       temp:        scores.temp,
-      fill_speed:  scores.fillSpeed,
+      fill_speed:  hasFill ? scores.fillSpeed : null,
       consistency: scores.consistency,
       cleanliness: scores.cleanliness,
       access:      scores.access,
