@@ -228,8 +228,10 @@ header {
 <script>
 // ── Floor plan dimensions ─────────────────────
 // Update these to match your SVG's viewBox width/height
-var NAT_W = 2823;
-var NAT_H = 2212;
+var SVG_ORIGIN_X = 460;
+var SVG_ORIGIN_Y = 220;
+var NAT_W = 1840;  // same as floor 1
+var NAT_H = 1640;  // same as floor 1
 var FLOOR_SRC = '../img/floorplan2.svg';
 
 // ── Pan/zoom state (same viewBox approach as map.html) ────────────────
@@ -246,11 +248,11 @@ function screenToSVG(px, py) {
   };
 }
 
-// Convert SVG coords back to percentage of full image
+// Convert SVG coords back to percentage of image
 function svgToPct(sx, sy) {
   return {
-    x: +Math.max(0, Math.min(100, (sx / NAT_W) * 100)).toFixed(1),
-    y: +Math.max(0, Math.min(100, (sy / NAT_H) * 100)).toFixed(1)
+    x: +((sx - SVG_ORIGIN_X) / NAT_W * 100).toFixed(1),
+    y: +((sy - SVG_ORIGIN_Y) / NAT_H * 100).toFixed(1)
   };
 }
 
@@ -268,8 +270,8 @@ function resetView() {
   var fitScale = Math.min(scaleX, scaleY);
   vw = cw / fitScale;
   vh = ch / fitScale;
-  vx = (NAT_W - vw) / 2;
-  vy = (NAT_H - vh) / 2;
+  vx = SVG_ORIGIN_X + (NAT_W - vw) / 2;
+  vy = SVG_ORIGIN_Y + (NAT_H - vh) / 2;
   applyViewBox();
 }
 
@@ -426,15 +428,11 @@ function renderHistory() {
 function drawGrid(d) {
   var svg = document.getElementById('grid-svg');
   if (!showGrid) { svg.innerHTML = ''; return; }
-
   var c  = document.getElementById('map-wrap');
   var cw = c.clientWidth, ch = c.clientHeight;
   var html = '';
-
-  // Draw vertical lines for each percentage step
   for (var p = 0; p <= 100; p += d) {
-    // Convert SVG x coordinate to screen x
-    var svgX  = (p / 100) * NAT_W;
+    var svgX  = SVG_ORIGIN_X + (p / 100) * NAT_W;
     var scrX  = (svgX - vx) / vw * cw;
     if (scrX < 0 || scrX > cw) continue;
     var maj   = (p % (d * 5) === 0);
@@ -444,9 +442,8 @@ function drawGrid(d) {
       html += '<text x="' + (scrX + 2) + '" y="14" font-size="9" fill="rgba(37,99,235,0.5)" font-family="DM Mono,monospace">' + p + '</text>';
     }
   }
-  // Draw horizontal lines
   for (var p = 0; p <= 100; p += d) {
-    var svgY  = (p / 100) * NAT_H;
+    var svgY  = SVG_ORIGIN_Y + (p / 100) * NAT_H;
     var scrY  = (svgY - vy) / vh * ch;
     if (scrY < 0 || scrY > ch) continue;
     var maj   = (p % (d * 5) === 0);
@@ -456,7 +453,6 @@ function drawGrid(d) {
       html += '<text x="3" y="' + (scrY - 2) + '" font-size="9" fill="rgba(37,99,235,0.5)" font-family="DM Mono,monospace">' + p + '</text>';
     }
   }
-
   svg.innerHTML = html;
 }
 
