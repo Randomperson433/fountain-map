@@ -1115,7 +1115,9 @@ function setRankSort(key) {
 
 function getFountainScore(f, key) {
   var avgs = fountainAvgs(f);
-  return key === 'overall' ? avgs.overall : (avgs.catAvgs[key] || 0);
+  if (key === 'overall') return avgs.overall;
+  var v = avgs.catAvgs[key];
+  return (v !== null && v !== undefined) ? v : null;
 }
 
 function renderRankings() {
@@ -1139,12 +1141,18 @@ function renderRankings() {
   }
 
   fountains.sort(function(a, b) {
-    return getFountainScore(b, rankSortKey) - getFountainScore(a, rankSortKey);
+  var sa = getFountainScore(a, rankSortKey);
+  var sb = getFountainScore(b, rankSortKey);
+  if (sa === null && sb === null) return 0;
+  if (sa === null) return 1;
+  if (sb === null) return -1;
+  return sb - sa;
   });
 
   document.getElementById('rank-list').innerHTML = fountains.map(function(f, i) {
     var score = getFountainScore(f, rankSortKey);
-    var col   = scoreColor(score);
+    var col   = score !== null ? scoreColor(score) : 'var(--text3)';
+    var scoreStr = score !== null ? score.toFixed(1) : '—';
     var floorTag = rankFloorFilter === 'all' ? '<div class="rank-floor-tag">Level ' + f.floor + '</div>' : '';
     return '<div class="rank-item" onclick="onRankClick(\'' + f.id + '\')">' +
       '<div class="rank-num">' + (i + 1) + '</div>' +
@@ -1153,7 +1161,7 @@ function renderRankings() {
         '<div class="rank-loc">' + f.location + '</div>' +
         floorTag +
       '</div>' +
-      '<div class="rank-score" style="color:' + col + '">' + score.toFixed(1) + '</div>' +
+      '<div class="rank-score" style="color:' + col + '">' + scoreStr + '</div>' +
     '</div>';
   }).join('');
 }
