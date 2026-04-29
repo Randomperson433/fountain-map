@@ -1010,6 +1010,7 @@ function renderDots() {
   var ox = CROPS[activeFloor].ox;
   var oy = CROPS[activeFloor].oy;
   FOUNTAINS.filter(function(f) { return f.floor === activeFloor; }).forEach(function(f) {
+    console.log(f.id, f.disabled);
     var disabled = !!f.disabled;
     var score    = disabled ? 0 : getFountainScore(f, rankingsOpen ? rankSortKey : 'overall');
     var col      = disabled ? '#b0aca4' : scoreColor(score);
