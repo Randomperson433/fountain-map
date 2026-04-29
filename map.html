@@ -6,6 +6,8 @@
 <title>Map — Fountain Map SHS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<!-- QR code library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -216,6 +218,51 @@ nav {
 .rank-floor-tag { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 2px; }
 .rank-score { font-family: var(--mono); font-size: 15px; font-weight: 500; min-width: 34px; text-align: right; }
 .rank-no-ratings { font-family: var(--mono); font-size: 11px; color: var(--text3); padding: 20px; text-align: center; }
+
+/* ── Out-of-service banner ───────────────────── */
+.oos-banner {
+  display: flex; align-items: center; gap: 8px;
+  background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;
+  padding: 9px 12px; margin-bottom: 14px;
+  font-family: var(--mono); font-size: 11px; color: #991b1b;
+}
+.oos-banner .oos-icon { font-size: 14px; flex-shrink: 0; }
+
+/* ── QR / link section ───────────────────────── */
+.qr-section {
+  border-top: 1px solid var(--border); padding-top: 14px; margin-top: 4px;
+}
+.qr-section-head {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text3); margin-bottom: 10px;
+}
+.qr-actions { display: flex; gap: 7px; margin-bottom: 12px; }
+.qr-action-btn {
+  flex: 1; font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em;
+  padding: 7px 0; border: 1px solid var(--border2); border-radius: 4px;
+  background: var(--bg); color: var(--text2); cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.qr-action-btn:hover { background: var(--white); color: var(--text); }
+.qr-action-btn.copied { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+#qr-canvas-wrap {
+  display: none; background: var(--white); border: 1px solid var(--border);
+  border-radius: 6px; padding: 12px; text-align: center;
+}
+#qr-canvas-wrap.visible { display: block; }
+#qr-canvas-wrap canvas, #qr-canvas-wrap img { max-width: 100%; height: auto !important; }
+.qr-url-text {
+  font-family: var(--mono); font-size: 9px; color: var(--text3);
+  margin-top: 8px; word-break: break-all; line-height: 1.5;
+}
+.qr-print-btn {
+  margin-top: 10px; width: 100%; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.05em; padding: 7px 0; border: 1px solid var(--border2);
+  border-radius: 4px; background: none; color: var(--text2); cursor: pointer;
+  transition: background 0.12s;
+}
+.qr-print-btn:hover { background: var(--bg); }
 </style>
 </head>
 <body>
@@ -268,9 +315,6 @@ nav {
     </div>
 
     <div id="map-container">
-      <!-- Floor plan SVG injected here by loadFloor().
-           Dots live inside the floor SVG in SVG coordinate space,
-           so pan/zoom moves everything together for free. -->
       <div class="zoom-btns">
         <button class="zoom-btn" onclick="zoomBy(1.3)">+</button>
         <button class="zoom-btn" onclick="zoomBy(0.77)">-</button>
@@ -295,8 +339,14 @@ nav {
         <div class="tabs">
           <button class="tab active" id="tab-ratings" onclick="switchTab('ratings')">Ratings</button>
           <button class="tab" id="tab-add" onclick="switchTab('add')">Add rating</button>
+          <button class="tab" id="tab-qr" onclick="switchTab('qr')">QR / Link</button>
         </div>
         <div id="view-ratings" class="d-body">
+          <!-- out-of-service banner (shown when disabled) -->
+          <div class="oos-banner" id="oos-banner" style="display:none;">
+            <span class="oos-icon">🚫</span>
+            <span>Currently out of service</span>
+          </div>
           <div class="score-block"><span class="score-n" id="d-score"></span><span class="score-d">/10</span></div>
           <div class="score-meta" id="d-meta"></div>
           <div class="bars" id="d-bars"></div>
@@ -304,37 +354,63 @@ nav {
           <div id="d-reviews"></div>
         </div>
         <div id="view-add" class="form-body" style="display:none;">
-          <div class="field">
-            <div class="field-label">Your name</div>
-            <input class="text-input" id="f-author" type="text" placeholder="e.g. nic" autocomplete="off"/>
+          <!-- out-of-service notice inside Add tab -->
+          <div class="oos-banner" id="oos-banner-add" style="display:none;">
+            <span class="oos-icon">🚫</span>
+            <span>This fountain is out of service — ratings disabled</span>
           </div>
-          <div class="form-section-head">Scores</div>
-          <div class="field"><div class="field-label">Taste<span class="score-preview" id="prev-taste">5.0</span></div><input class="score-slider" id="sl-taste" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('taste',this.value)"/></div>
-          <div class="field"><div class="field-label">Pressure<span class="score-preview" id="prev-pressure">5.0</span></div><input class="score-slider" id="sl-pressure" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('pressure',this.value)"/></div>
-          <div class="field"><div class="field-label">Temperature<span class="score-preview" id="prev-temp">5.0</span></div><input class="score-slider" id="sl-temp" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('temp',this.value)"/></div>
-          <div class="field">
-            <div class="field-label" style="margin-bottom:8px;">Bottle fill speed
-              <label style="display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:0.05em;cursor:pointer;font-weight:normal;">
-                <input type="checkbox" id="has-fill" checked onchange="toggleFillField()" style="accent-color:var(--text);cursor:pointer;"/>
-                has fill station
-              </label>
+          <div id="add-form-wrap">
+            <div class="field">
+              <div class="field-label">Your name</div>
+              <input class="text-input" id="f-author" type="text" placeholder="e.g. nic" autocomplete="off"/>
             </div>
-            <div id="fill-field">
-              <div class="fill-time-group">
-                <div class="fill-time-input-wrap"><span class="fill-sub-label">Time (stopwatch)</span><input class="time-input" id="f-filltime" type="text" placeholder="e.g. 12.4s" autocomplete="off"/></div>
-                <div class="fill-time-input-wrap"><span class="fill-sub-label">Score (0-10) <span id="prev-fillSpeed" style="font-weight:500">5.0</span></span><input class="score-slider" id="sl-fillSpeed" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('fillSpeed',this.value)" style="margin-top:6px"/></div>
+            <div class="form-section-head">Scores</div>
+            <div class="field"><div class="field-label">Taste<span class="score-preview" id="prev-taste">5.0</span></div><input class="score-slider" id="sl-taste" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('taste',this.value)"/></div>
+            <div class="field"><div class="field-label">Pressure<span class="score-preview" id="prev-pressure">5.0</span></div><input class="score-slider" id="sl-pressure" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('pressure',this.value)"/></div>
+            <div class="field"><div class="field-label">Temperature<span class="score-preview" id="prev-temp">5.0</span></div><input class="score-slider" id="sl-temp" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('temp',this.value)"/></div>
+            <div class="field">
+              <div class="field-label" style="margin-bottom:8px;">Bottle fill speed
+                <label style="display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:0.05em;cursor:pointer;font-weight:normal;">
+                  <input type="checkbox" id="has-fill" checked onchange="toggleFillField()" style="accent-color:var(--text);cursor:pointer;"/>
+                  has fill station
+                </label>
               </div>
+              <div id="fill-field">
+                <div class="fill-time-group">
+                  <div class="fill-time-input-wrap"><span class="fill-sub-label">Time (stopwatch)</span><input class="time-input" id="f-filltime" type="text" placeholder="e.g. 12.4s" autocomplete="off"/></div>
+                  <div class="fill-time-input-wrap"><span class="fill-sub-label">Score (0-10) <span id="prev-fillSpeed" style="font-weight:500">5.0</span></span><input class="score-slider" id="sl-fillSpeed" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('fillSpeed',this.value)" style="margin-top:6px"/></div>
+                </div>
+              </div>
+              <div id="no-fill-msg" style="display:none;font-family:var(--mono);font-size:10px;color:var(--text3);padding:4px 0;">fill speed not rated for this fountain</div>
             </div>
-            <div id="no-fill-msg" style="display:none;font-family:var(--mono);font-size:10px;color:var(--text3);padding:4px 0;">fill speed not rated for this fountain</div>
+            <div class="field"><div class="field-label">Consistency<span class="score-preview" id="prev-consistency">5.0</span></div><input class="score-slider" id="sl-consistency" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('consistency',this.value)"/></div>
+            <div class="field"><div class="field-label">Cleanliness<span class="score-preview" id="prev-cleanliness">5.0</span></div><input class="score-slider" id="sl-cleanliness" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('cleanliness',this.value)"/></div>
+            <div class="field"><div class="field-label">Accessibility<span class="score-preview" id="prev-access">5.0</span></div><input class="score-slider" id="sl-access" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('access',this.value)"/></div>
+            <div class="form-section-head" style="margin-top:8px;">Note <span style="color:var(--text3);font-size:9px;letter-spacing:0">(optional)</span></div>
+            <div class="field" style="margin-bottom:0"><textarea class="text-input" id="f-note" rows="2" placeholder="Any comments..." style="resize:vertical; font-family:var(--sans)"></textarea></div>
+            <button class="submit-btn" onclick="submitRating()">Submit rating</button>
+            <div class="submit-success" id="submit-success"><div class="ss-check">&#10003;</div>Rating added. Thank you!</div>
           </div>
-          <div class="field"><div class="field-label">Consistency<span class="score-preview" id="prev-consistency">5.0</span></div><input class="score-slider" id="sl-consistency" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('consistency',this.value)"/></div>
-          <div class="field"><div class="field-label">Cleanliness<span class="score-preview" id="prev-cleanliness">5.0</span></div><input class="score-slider" id="sl-cleanliness" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('cleanliness',this.value)"/></div>
-          <div class="field"><div class="field-label">Accessibility<span class="score-preview" id="prev-access">5.0</span></div><input class="score-slider" id="sl-access" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('access',this.value)"/></div>
-          <div class="form-section-head" style="margin-top:8px;">Note <span style="color:var(--text3);font-size:9px;letter-spacing:0">(optional)</span></div>
-          <div class="field" style="margin-bottom:0"><textarea class="text-input" id="f-note" rows="2" placeholder="Any comments..." style="resize:vertical; font-family:var(--sans)"></textarea></div>
-          <button class="submit-btn" onclick="submitRating()">Submit rating</button>
-          <div class="submit-success" id="submit-success"><div class="ss-check">&#10003;</div>Rating added. Thank you!</div>
         </div>
+
+        <!-- QR / Link tab -->
+        <div id="view-qr" class="form-body" style="display:none;">
+          <div class="qr-section-head" style="margin-bottom:10px;">Deep link for this fountain</div>
+          <div class="qr-actions">
+            <button class="qr-action-btn" id="copy-link-btn" onclick="copyFountainLink()">
+              <span>&#128279;</span> Copy link
+            </button>
+            <button class="qr-action-btn" id="show-qr-btn" onclick="toggleQR()">
+              <span>&#9639;</span> Show QR
+            </button>
+          </div>
+          <div id="qr-canvas-wrap">
+            <div id="qr-code-container"></div>
+            <div class="qr-url-text" id="qr-url-display"></div>
+            <button class="qr-print-btn" onclick="printQR()">Print QR code</button>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -372,6 +448,9 @@ var CATEGORIES = [
   { key: 'access',      label: 'Accessibility' }
 ];
 
+// ── FOUNTAINS ─────────────────────────────────
+// To mark a fountain out of service, set disabled: true on its entry.
+// Example: { id: 'f7', ..., disabled: true }
 var FOUNTAINS = [
   {
     id: 'f1', name: 'Main Entrance', location: 'In front of room 160, left of office',
@@ -473,7 +552,6 @@ var FOUNTAINS = [
     floor: 2, x: 60.1, y: 70.2, 
     ratings: [] 
   }
-
 ];
 
 // ── Helpers ──────────────────────────────────
@@ -528,17 +606,115 @@ function avgFillTime(f) {
   return times.length ? avg(times).toFixed(1) + 's' : null;
 }
 
+// ── Deep-link URL helpers ─────────────────────
+function fountainURL(f) {
+  var base = window.location.href.split('?')[0];
+  return base + '?fountain=' + encodeURIComponent(f.id);
+}
+
+function getURLParam(name) {
+  var params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
+
+// ── QR code ───────────────────────────────────
+var qrVisible = false;
+var currentQRInstance = null;
+
+function toggleQR() {
+  if (!activeFountain) return;
+  qrVisible = !qrVisible;
+  var wrap = document.getElementById('qr-canvas-wrap');
+  var btn  = document.getElementById('show-qr-btn');
+  if (qrVisible) {
+    wrap.classList.add('visible');
+    btn.innerHTML = '<span>&#9639;</span> Hide QR';
+    generateQR(activeFountain);
+  } else {
+    wrap.classList.remove('visible');
+    btn.innerHTML = '<span>&#9639;</span> Show QR';
+  }
+}
+
+function generateQR(f) {
+  var container = document.getElementById('qr-code-container');
+  container.innerHTML = '';
+  var url = fountainURL(f);
+  document.getElementById('qr-url-display').textContent = url;
+  try {
+    new QRCode(container, {
+      text: url,
+      width: 220,
+      height: 220,
+      colorDark: '#1c1b18',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(e) {
+    container.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--text3);padding:8px;">QR library not loaded</div>';
+  }
+}
+
+function copyFountainLink() {
+  if (!activeFountain) return;
+  var url = fountainURL(activeFountain);
+  var btn = document.getElementById('copy-link-btn');
+  navigator.clipboard.writeText(url).then(function() {
+    btn.classList.add('copied');
+    btn.innerHTML = '<span>&#10003;</span> Copied!';
+    setTimeout(function() {
+      btn.classList.remove('copied');
+      btn.innerHTML = '<span>&#128279;</span> Copy link';
+    }, 2000);
+  }).catch(function() {
+    // Fallback for non-HTTPS or older browsers
+    var ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.classList.add('copied');
+    btn.innerHTML = '<span>&#10003;</span> Copied!';
+    setTimeout(function() {
+      btn.classList.remove('copied');
+      btn.innerHTML = '<span>&#128279;</span> Copy link';
+    }, 2000);
+  });
+}
+
+function printQR() {
+  if (!activeFountain) return;
+  var qrImg  = document.querySelector('#qr-code-container img');
+  var canvas = document.querySelector('#qr-code-container canvas');
+  var src;
+  if (qrImg) src = qrImg.src;
+  else if (canvas) src = canvas.toDataURL('image/png');
+  else return;
+
+  var win = window.open('', '_blank');
+  win.document.write([
+    '<!DOCTYPE html><html><head>',
+    '<style>',
+    'body{font-family:monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#fff;}',
+    'h2{font-size:18px;margin-bottom:4px;}',
+    'p{font-size:11px;color:#666;margin-bottom:20px;}',
+    'img{width:280px;height:280px;}',
+    '.url{font-size:10px;color:#999;margin-top:14px;word-break:break-all;max-width:300px;text-align:center;}',
+    '</style></head><body>',
+    '<h2>' + activeFountain.name + '</h2>',
+    '<p>' + activeFountain.location + '</p>',
+    '<img src="' + src + '"/>',
+    '<div class="url">' + fountainURL(activeFountain) + '</div>',
+    '</body></html>'
+  ].join(''));
+  win.document.close();
+  setTimeout(function() { win.print(); }, 400);
+}
+
 // ── Pan / Zoom via SVG viewBox ────────────────
-// Pan/zoom works by manipulating the SVG viewBox directly.
-// The browser re-renders the SVG at screen resolution on every change —
-// always crisp at any zoom level.
-// Dots live inside the floor SVG in the same coordinate space, so they
-// move with the map automatically — no repositioning needed.
-// updateDotScale() counters the zoom on dot radii so they stay a
-// constant visual size on screen regardless of zoom level.
-//
-// State: vx, vy = top-left corner of visible area in SVG units
-//        vw, vh = visible area size in SVG units (smaller = more zoomed in)
 var vx = 0, vy = 0, vw = 1, vh = 1;
 var svgNatW = 1, svgNatH = 1;
 
@@ -602,7 +778,6 @@ function loadRatings() {
   sbFetch('ratings?select=*')
     .then(function(r) { return r.json(); })
     .then(function(rows) {
-      // Clear all existing ratings first
       FOUNTAINS.forEach(function(f) { f.ratings = []; });
       rows.forEach(function(row) {
         var f = FOUNTAINS.find(function(f) { return f.id === row.fountain_id; });
@@ -625,8 +800,41 @@ function loadRatings() {
       renderDots();
       if (activeFountain) renderRatings(activeFountain);
       if (rankingsOpen) renderRankings();
+
+      // After ratings load, handle deep-link
+      handleDeepLink();
     })
     .catch(function(err) { console.error('Failed to load ratings:', err); });
+}
+
+// ── Deep-link handler ─────────────────────────
+var deepLinkHandled = false;
+
+function handleDeepLink() {
+  if (deepLinkHandled) return;
+  var id = getURLParam('fountain');
+  if (!id) return;
+  var f = FOUNTAINS.find(function(f) { return f.id === id; });
+  if (!f) return;
+  deepLinkHandled = true;
+
+  if (f.floor !== activeFloor) {
+    switchFloor(f.floor);
+    // Wait for floor SVG to load then zoom + open
+    var attempts = 0;
+    var poll = setInterval(function() {
+      attempts++;
+      if (document.getElementById('floor-svg') && svgNatW > 1) {
+        clearInterval(poll);
+        zoomToFountain(f);
+        openDetail(f);
+      }
+      if (attempts > 40) clearInterval(poll);
+    }, 100);
+  } else {
+    zoomToFountain(f);
+    openDetail(f);
+  }
 }
 
 function initPanZoom() {
@@ -713,7 +921,6 @@ function loadFloor(n) {
     renderDots();
   }
 
-  // Insert before the zoom buttons so it sits behind them in DOM order
   var zoomBtns = container.querySelector('.zoom-btns');
 
   if (isSVG) {
@@ -740,7 +947,6 @@ function loadFloor(n) {
       })
       .catch(function() { onReady(1200, 900); });
   } else {
-    // Raster floors: wrap in an SVG so dots share the same coordinate space
     var probe = new Image();
     probe.onload = function() {
       var natW = probe.naturalWidth  || 1200;
@@ -769,16 +975,10 @@ function loadFloor(n) {
 }
 
 // ── Dots ─────────────────────────────────────
-// Dots live inside #floor-svg in SVG coordinate space, so pan/zoom moves
-// them with the map for free. updateDotScale() converts a fixed target pixel
-// size back into SVG units on every viewBox change, keeping dots visually
-// constant regardless of zoom level.
-
+// Disabled fountains render as grey with an × mark instead of colored dots.
 function updateDotScale() {
   var floorSvg = document.getElementById('floor-svg');
   if (!floorSvg || vw === 1) return;
-  // Use the SVG's rendered size rather than the container's clientWidth,
-  // so dot scale is unaffected by the panel opening/closing.
   var rect = floorSvg.getBoundingClientRect();
   if (!rect.width) return;
   var pxPerUnit = rect.width / vw;
@@ -786,12 +986,15 @@ function updateDotScale() {
   var rRing  = 14 / pxPerUnit;
   var sw     =  1.5 / pxPerUnit;
   var swRing =  2   / pxPerUnit;
+  var fontSize = 11 / pxPerUnit;
 
   document.querySelectorAll('.f-dot').forEach(function(dot) {
     var core = dot.querySelector('.f-core');
     var ring = dot.querySelector('.f-ring');
+    var cross = dot.querySelector('.f-cross');
     if (core) { core.setAttribute('r', r);     core.setAttribute('stroke-width', sw); }
     if (ring) { ring.setAttribute('r', rRing); ring.setAttribute('stroke-width', swRing); }
+    if (cross) { cross.setAttribute('font-size', fontSize); }
   });
 }
 
@@ -806,14 +1009,17 @@ function renderDots() {
   var ox = CROPS[activeFloor].ox;
   var oy = CROPS[activeFloor].oy;
   FOUNTAINS.filter(function(f) { return f.floor === activeFloor; }).forEach(function(f) {
-    var score = getFountainScore(f, rankingsOpen ? rankSortKey : 'overall');
-    var col   = scoreColor(score);
-    var svgX  = ox + (f.x / 100) * svgNatW;
-    var svgY  = oy + (f.y / 100) * svgNatH;
+    var disabled = !!f.disabled;
+    var score    = disabled ? 0 : getFountainScore(f, rankingsOpen ? rankSortKey : 'overall');
+    var col      = disabled ? '#b0aca4' : scoreColor(score);
+    var svgX     = ox + (f.x / 100) * svgNatW;
+    var svgY     = oy + (f.y / 100) * svgNatH;
+
     var dot = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     dot.setAttribute('class', 'f-dot');
     dot.setAttribute('data-id', f.id);
     dot.style.cursor = 'pointer';
+
     var ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     ring.setAttribute('class', 'f-ring');
     ring.setAttribute('cx', svgX); ring.setAttribute('cy', svgY);
@@ -821,14 +1027,33 @@ function renderDots() {
     ring.setAttribute('stroke', col);
     ring.setAttribute('fill', 'none');
     ring.setAttribute('opacity', '0');
+
     var core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     core.setAttribute('class', 'f-core');
     core.setAttribute('cx', svgX); core.setAttribute('cy', svgY);
     core.setAttribute('r', 1);
-    core.setAttribute('fill', col);
+    core.setAttribute('fill', disabled ? '#d4d1ca' : col);
     core.setAttribute('stroke', 'white');
+
     dot.appendChild(ring);
     dot.appendChild(core);
+
+    // × mark for disabled fountains
+    if (disabled) {
+      var cross = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      cross.setAttribute('class', 'f-cross');
+      cross.setAttribute('x', svgX);
+      cross.setAttribute('y', svgY);
+      cross.setAttribute('text-anchor', 'middle');
+      cross.setAttribute('dominant-baseline', 'central');
+      cross.setAttribute('fill', '#9e9c94');
+      cross.setAttribute('font-size', '1');
+      cross.setAttribute('font-family', 'sans-serif');
+      cross.setAttribute('pointer-events', 'none');
+      cross.textContent = '✕';
+      dot.appendChild(cross);
+    }
+
     dot.addEventListener('mouseenter', function(e) {
       showTip(e, f);
       ring.setAttribute('opacity', '0.55');
@@ -865,10 +1090,13 @@ function showTip(e, f) {
   var avgs = fountainAvgs(f);
   var noR  = !f.ratings.length;
   var html = '<div class="tt-name">' + f.name + '</div>';
-  if (noR) {
+  if (f.disabled) {
+    html += '<div style="font-family:var(--mono);font-size:11px;color:#991b1b">🚫 out of service</div>';
+  } else if (noR) {
     html += '<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">no ratings yet</div>';
   } else {
     CATEGORIES.forEach(function(c) {
+      if (avgs.catAvgs[c.key] === null) return;
       html += '<div class="tt-row"><span>' + c.label + '</span>';
       html += '<span class="v">' + avgs.catAvgs[c.key].toFixed(1) + '</span></div>';
     });
@@ -905,12 +1133,15 @@ function toggleFillField() {
 function openDetail(f) {
   hideTip();
   activeFountain = f;
-  // Deactivate any previously highlighted dot
+  // Reset QR state
+  qrVisible = false;
+  document.getElementById('qr-canvas-wrap').classList.remove('visible');
+  document.getElementById('show-qr-btn').innerHTML = '<span>&#9639;</span> Show QR';
+
   document.querySelectorAll('.f-dot').forEach(function(d) {
     d.classList.remove('active');
     d.querySelector('.f-ring').setAttribute('opacity', '0');
   });
-  // Highlight the newly selected dot
   var activeDot = document.querySelector('.f-dot[data-id="' + f.id + '"]');
   if (activeDot) {
     activeDot.classList.add('active');
@@ -926,6 +1157,20 @@ function openDetail(f) {
 }
 
 function renderRatings(f) {
+  // Show/hide OOS banner
+  var banner    = document.getElementById('oos-banner');
+  var bannerAdd = document.getElementById('oos-banner-add');
+  var addWrap   = document.getElementById('add-form-wrap');
+  if (f.disabled) {
+    banner.style.display    = 'flex';
+    bannerAdd.style.display = 'flex';
+    addWrap.style.display   = 'none';
+  } else {
+    banner.style.display    = 'none';
+    bannerAdd.style.display = 'none';
+    addWrap.style.display   = 'block';
+  }
+
   var avgs = fountainAvgs(f);
   var sn   = document.getElementById('d-score');
   if (!f.ratings.length) {
@@ -986,6 +1231,7 @@ function closeDetail() {
     d.querySelector('.f-ring').setAttribute('opacity', '0');
   });
   activeFountain = null;
+  qrVisible = false;
   setTimeout(function() {
     document.getElementById('detail-content').style.display = 'none';
     document.getElementById('no-sel').style.display         = 'flex';
@@ -994,10 +1240,10 @@ function closeDetail() {
 
 // ── Tabs + Form ───────────────────────────────
 function switchTab(tab) {
-  document.getElementById('tab-ratings').classList.toggle('active', tab === 'ratings');
-  document.getElementById('tab-add').classList.toggle('active',     tab === 'add');
-  document.getElementById('view-ratings').style.display = tab === 'ratings' ? 'block' : 'none';
-  document.getElementById('view-add').style.display     = tab === 'add'     ? 'block' : 'none';
+  ['ratings','add','qr'].forEach(function(t) {
+    document.getElementById('tab-' + t).classList.toggle('active', tab === t);
+    document.getElementById('view-' + t).style.display = tab === t ? (t === 'ratings' ? 'block' : 'block') : 'none';
+  });
   if (tab === 'add') resetForm();
 }
 
@@ -1025,6 +1271,7 @@ function resetForm() {
 
 function submitRating() {
   if (!activeFountain) return;
+  if (activeFountain.disabled) { alert('This fountain is out of service.'); return; }
   var author   = document.getElementById('f-author').value.trim()   || 'anonymous';
   var hasFill  = document.getElementById('has-fill').checked;
   var fillTime = hasFill ? (document.getElementById('f-filltime').value.trim() || null) : null;
@@ -1109,11 +1356,11 @@ function setRankFloor(f) {
 function setRankSort(key) {
   rankSortKey = key;
   renderRankings();
-  // Recolor dots to reflect the new factor
   renderDots();
 }
 
 function getFountainScore(f, key) {
+  if (f.disabled) return null;
   var avgs = fountainAvgs(f);
   if (key === 'overall') return avgs.overall;
   var v = avgs.catAvgs[key];
@@ -1121,14 +1368,14 @@ function getFountainScore(f, key) {
 }
 
 function renderRankings() {
-  // Sort buttons
   document.getElementById('rank-sort-bar').innerHTML = RANK_SORTS.map(function(s) {
     return '<button class="rank-sort-btn' + (rankSortKey === s.key ? ' active' : '') +
       '" onclick="setRankSort(\'' + s.key + '\')">' + s.label + '</button>';
   }).join('');
 
-  // Filter by floor
+  // Disabled fountains excluded from rankings
   var fountains = FOUNTAINS.filter(function(f) {
+    if (f.disabled) return false;
     var hasRatings = f.ratings.length > 0;
     if (rankFloorFilter === 'all') return hasRatings;
     return f.floor === rankFloorFilter && hasRatings;
@@ -1141,12 +1388,12 @@ function renderRankings() {
   }
 
   fountains.sort(function(a, b) {
-  var sa = getFountainScore(a, rankSortKey);
-  var sb = getFountainScore(b, rankSortKey);
-  if (sa === null && sb === null) return 0;
-  if (sa === null) return 1;
-  if (sb === null) return -1;
-  return sb - sa;
+    var sa = getFountainScore(a, rankSortKey);
+    var sb = getFountainScore(b, rankSortKey);
+    if (sa === null && sb === null) return 0;
+    if (sa === null) return 1;
+    if (sb === null) return -1;
+    return sb - sa;
   });
 
   document.getElementById('rank-list').innerHTML = fountains.map(function(f, i) {
@@ -1174,7 +1421,7 @@ function onRankClick(id) {
     setTimeout(function() {
       zoomToFountain(f);
       openDetail(f);
-    }, 600); // slightly longer to let SVG fully load
+    }, 600);
   } else {
     zoomToFountain(f);
     openDetail(f);
