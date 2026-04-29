@@ -60,6 +60,10 @@ nav {
 }
 #map-container.panning { cursor: grabbing; }
 
+/* The floor SVG is inlined directly into #map-container and fills it.
+   Pan/zoom works by manipulating the SVG viewBox — no CSS transform scaling.
+   This means the browser re-renders the SVG at screen resolution on every
+   zoom level, so it stays perfectly crisp no matter how far you zoom in. */
 #map-container > svg {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
@@ -67,6 +71,7 @@ nav {
   cursor: inherit;
 }
 
+/* Raster fallback image */
 #map-container > img {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
@@ -74,6 +79,53 @@ nav {
 }
 
 .f-dot { cursor: pointer; }
+.f-dot .f-ring { fill: none; opacity: 0; transition: opacity 0.12s; }
+.f-dot .f-core { stroke: white; }
+.f-dot:hover .f-ring, .f-dot.active .f-ring { opacity: 0.55; }
+.f-dot.disabled-dot { cursor: not-allowed; opacity: 0.55; }
+.f-dot.disabled-dot .f-core { stroke: white; }
+
+/* Out of service banner */
+.oos-banner {
+  background: #fef2f2; border: 1px solid #fecaca;
+  border-radius: 6px; padding: 10px 13px;
+  font-family: var(--mono); font-size: 11px;
+  color: #991b1b; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.oos-banner .oos-icon { font-size: 14px; flex-shrink: 0; }
+
+/* QR section in detail panel */
+.qr-section {
+  border-top: 1px solid var(--border);
+  padding: 14px 18px 18px;
+  flex-shrink: 0;
+}
+.qr-label {
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 10px;
+}
+.qr-img-wrap {
+  display: flex; justify-content: center;
+  margin-bottom: 10px;
+}
+.qr-img-wrap img {
+  width: 160px; height: 160px;
+  image-rendering: pixelated;
+  border: 1px solid var(--border); border-radius: 4px; padding: 6px;
+  background: white;
+}
+.qr-btns { display: flex; gap: 8px; }
+.qr-btn {
+  flex: 1; font-family: var(--mono); font-size: 11px;
+  padding: 7px 10px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--border2); background: none;
+  color: var(--text2); transition: background 0.12s, color 0.12s;
+  text-align: center;
+}
+.qr-btn:hover { background: var(--bg); color: var(--text); }
+.qr-btn.copied { border-color: #16a34a; color: #16a34a; }
 
 .zoom-btns { position: absolute; bottom: 14px; left: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
 .zoom-btn { width: 30px; height: 30px; background: var(--white); border: 1px solid var(--border2); border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); font-size: 16px; line-height: 1; transition: background 0.12s; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
@@ -147,75 +199,6 @@ nav {
 .no-sel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; text-align: center; color: var(--text3); }
 .no-sel .ns-icon { font-size: 24px; margin-bottom: 10px; }
 .no-sel p { font-family: var(--mono); font-size: 11px; line-height: 1.7; letter-spacing: 0.04em; }
-
-.rank-btn {
-  font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em;
-  padding: 5px 12px; background: none; border: 1px solid var(--border2);
-  border-radius: 4px; cursor: pointer; color: var(--text2);
-  transition: background 0.15s, color 0.15s;
-}
-.rank-btn.active { background: var(--text); color: var(--white); border-color: var(--text); }
-
-#rankings-sidebar {
-  width: 0; overflow: hidden; border-right: 1px solid var(--border);
-  background: var(--white); display: flex; flex-direction: column;
-  transition: width 0.32s cubic-bezier(0.4,0,0.2,1); flex-shrink: 0;
-  order: -1;
-}
-#rankings-sidebar.open { width: var(--panel-w); }
-#rankings-sidebar > * { width: var(--panel-w); }
-
-.rs-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-}
-.rs-title { font-family: var(--serif); font-size: 18px; }
-.rs-close {
-  font-family: var(--mono); font-size: 13px; background: none; border: none;
-  cursor: pointer; color: var(--text3); padding: 0;
-}
-.rs-close:hover { color: var(--text); }
-
-.rs-floor-bar {
-  display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0;
-}
-.rs-floor-btn {
-  flex: 1; padding: 8px 0; text-align: center;
-  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
-  color: var(--text3); cursor: pointer; border: none; background: none;
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
-  transition: color 0.15s, border-color 0.15s;
-}
-.rs-floor-btn:hover { color: var(--text2); }
-.rs-floor-btn.active { color: var(--text); border-bottom-color: var(--text); }
-
-.rs-sort-bar {
-  display: flex; flex-wrap: wrap; gap: 5px;
-  padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-}
-.rank-sort-btn {
-  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
-  padding: 4px 9px; background: none; border: 1px solid var(--border2);
-  border-radius: 4px; cursor: pointer; color: var(--text3);
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-}
-.rank-sort-btn.active { background: var(--text); color: var(--white); border-color: var(--text); }
-
-.rank-list { overflow-y: auto; flex: 1; }
-.rank-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px; border-bottom: 1px solid var(--border);
-  cursor: pointer; transition: background 0.12s;
-}
-.rank-item:hover { background: var(--bg); }
-.rank-item:last-child { border-bottom: none; }
-.rank-num { font-family: var(--mono); font-size: 11px; color: var(--text3); min-width: 18px; text-align: right; }
-.rank-info { flex: 1; min-width: 0; }
-.rank-name { font-family: var(--serif); font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rank-loc { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rank-floor-tag { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 2px; }
-.rank-score { font-family: var(--mono); font-size: 15px; font-weight: 500; min-width: 34px; text-align: right; }
-.rank-no-ratings { font-family: var(--mono); font-size: 11px; color: var(--text3); padding: 20px; text-align: center; }
 </style>
 </head>
 <body>
@@ -224,25 +207,11 @@ nav {
   <a href="index.html" class="nav-brand"><span class="water-word">water</span> Fountain Map</a>
   <div class="nav-right">
     <span class="nav-tag" id="nav-floor-tag">Level 1 · SHS</span>
-    <button class="rank-btn" id="rank-btn" onclick="toggleRankings()">Rankings</button>
-    <a href="index.html" class="nav-back">home</a>
+    <a href="index.html" class="nav-back">← home</a>
   </div>
 </nav>
 
 <div id="layout">
-  <div id="rankings-sidebar">
-    <div class="rs-head">
-      <span class="rs-title">Rankings</span>
-      <button class="rs-close" onclick="toggleRankings()">✕</button>
-    </div>
-    <div class="rs-floor-bar">
-      <button class="rs-floor-btn active" id="rfbtn-all" onclick="setRankFloor('all')">All</button>
-      <button class="rs-floor-btn" id="rfbtn-1" onclick="setRankFloor(1)">Level 1</button>
-      <button class="rs-floor-btn" id="rfbtn-2" onclick="setRankFloor(2)">Level 2</button>
-    </div>
-    <div class="rs-sort-bar" id="rank-sort-bar"></div>
-    <div class="rank-list" id="rank-list"></div>
-  </div>
   <div id="map-area">
     <div class="toolbar">
       <div class="tb-left">
@@ -268,9 +237,9 @@ nav {
     </div>
 
     <div id="map-container">
-      <!-- Floor plan SVG injected here by loadFloor().
-           Dots live inside the floor SVG in SVG coordinate space,
-           so pan/zoom moves everything together for free. -->
+      <!-- Floor plan SVG injected here by loadFloor() -->
+      <svg id="dots-svg" xmlns="http://www.w3.org/2000/svg"
+           style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:5;"></svg>
       <div class="zoom-btns">
         <button class="zoom-btn" onclick="zoomBy(1.3)">+</button>
         <button class="zoom-btn" onclick="zoomBy(0.77)">-</button>
@@ -295,6 +264,7 @@ nav {
         <div class="tabs">
           <button class="tab active" id="tab-ratings" onclick="switchTab('ratings')">Ratings</button>
           <button class="tab" id="tab-add" onclick="switchTab('add')">Add rating</button>
+          <button class="tab" id="tab-qr" onclick="switchTab('qr')">QR / Link</button>
         </div>
         <div id="view-ratings" class="d-body">
           <div class="score-block"><span class="score-n" id="d-score"></span><span class="score-d">/10</span></div>
@@ -313,21 +283,13 @@ nav {
           <div class="field"><div class="field-label">Pressure<span class="score-preview" id="prev-pressure">5.0</span></div><input class="score-slider" id="sl-pressure" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('pressure',this.value)"/></div>
           <div class="field"><div class="field-label">Temperature<span class="score-preview" id="prev-temp">5.0</span></div><input class="score-slider" id="sl-temp" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('temp',this.value)"/></div>
           <div class="field">
-            <div class="field-label" style="margin-bottom:8px;">Bottle fill speed
-              <label style="display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:0.05em;cursor:pointer;font-weight:normal;">
-                <input type="checkbox" id="has-fill" checked onchange="toggleFillField()" style="accent-color:var(--text);cursor:pointer;"/>
-                has fill station
-              </label>
+            <div class="field-label">Bottle fill speed</div>
+            <div class="fill-time-group">
+              <div class="fill-time-input-wrap"><span class="fill-sub-label">Time (stopwatch)</span><input class="time-input" id="f-filltime" type="text" placeholder="e.g. 12.4s" autocomplete="off"/></div>
+              <div class="fill-time-input-wrap"><span class="fill-sub-label">Score (0-10) <span id="prev-fillSpeed" style="font-weight:500">5.0</span></span><input class="score-slider" id="sl-fillSpeed" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('fillSpeed',this.value)" style="margin-top:6px"/></div>
             </div>
-            <div id="fill-field">
-              <div class="fill-time-group">
-                <div class="fill-time-input-wrap"><span class="fill-sub-label">Time (stopwatch)</span><input class="time-input" id="f-filltime" type="text" placeholder="e.g. 12.4s" autocomplete="off"/></div>
-                <div class="fill-time-input-wrap"><span class="fill-sub-label">Score (0-10) <span id="prev-fillSpeed" style="font-weight:500">5.0</span></span><input class="score-slider" id="sl-fillSpeed" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('fillSpeed',this.value)" style="margin-top:6px"/></div>
-              </div>
-            </div>
-            <div id="no-fill-msg" style="display:none;font-family:var(--mono);font-size:10px;color:var(--text3);padding:4px 0;">fill speed not rated for this fountain</div>
           </div>
-          <div class="field"><div class="field-label">Consistency<span class="score-preview" id="prev-consistency">5.0</span></div><input class="score-slider" id="sl-consistency" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('consistency',this.value)"/></div>
+          <div class="field"><div class="field-label">Reliability<span class="score-preview" id="prev-reliability">5.0</span></div><input class="score-slider" id="sl-reliability" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('reliability',this.value)"/></div>
           <div class="field"><div class="field-label">Cleanliness<span class="score-preview" id="prev-cleanliness">5.0</span></div><input class="score-slider" id="sl-cleanliness" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('cleanliness',this.value)"/></div>
           <div class="field"><div class="field-label">Accessibility<span class="score-preview" id="prev-access">5.0</span></div><input class="score-slider" id="sl-access" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('access',this.value)"/></div>
           <div class="form-section-head" style="margin-top:8px;">Note <span style="color:var(--text3);font-size:9px;letter-spacing:0">(optional)</span></div>
@@ -335,6 +297,21 @@ nav {
           <button class="submit-btn" onclick="submitRating()">Submit rating</button>
           <div class="submit-success" id="submit-success"><div class="ss-check">&#10003;</div>Rating added. Thank you!</div>
         </div>
+
+        <!-- QR / Link tab -->
+        <div id="view-qr" style="display:none; flex-direction:column; flex:1;">
+          <div class="qr-section">
+            <div class="qr-label">QR code for this fountain</div>
+            <div class="qr-img-wrap">
+              <img id="qr-img" src="" alt="QR code"/>
+            </div>
+            <div class="qr-btns">
+              <button class="qr-btn" id="qr-copy-btn" onclick="copyFountainLink()">Copy link</button>
+              <button class="qr-btn" onclick="printQR()">Print</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -342,24 +319,9 @@ nav {
 <div id="tooltip"></div>
 
 <script>
-
-var SUPABASE_URL = 'https://duqgbeuoudkfvtvdjuqm.supabase.co';
-var SUPABASE_KEY = 'sb_publishable_OIkvFeIySqf_I_Q2aYI-uQ_hU5OG3y1';
-
-function sbFetch(path, options) {
-  return fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=minimal'
-    }
-  }, options));
-}
-
 var FLOOR_IMAGES = {
   1: { src: 'img/floorplan1.svg' },
-  2: { src: 'img/floorplan2.svg' }
+  2: { src: 'img/floorplan2.png' }
 };
 
 var CATEGORIES = [
@@ -367,113 +329,65 @@ var CATEGORIES = [
   { key: 'pressure',    label: 'Pressure' },
   { key: 'temp',        label: 'Temperature' },
   { key: 'fillSpeed',   label: 'Bottle fill speed' },
-  { key: 'consistency', label: 'Consistency' },
+  { key: 'reliability', label: 'Reliability' },
   { key: 'cleanliness', label: 'Cleanliness' },
   { key: 'access',      label: 'Accessibility' }
 ];
 
 var FOUNTAINS = [
   {
-    id: 'f1', name: 'Main Entrance', location: 'In front of room 160, left of office',
-    floor: 1, x: 18.8, y: 38.4,
-    ratings: []
+    id: 'f1', name: 'Main Entrance Hall', location: 'Near rooms 160-165, B-wing',
+    floor: 1, x: 30, y: 48,
+    ratings: [
+      { author: 'nic',  scores: { taste:8, pressure:9, temp:9, fillSpeed:8, reliability:9, cleanliness:8, access:9 }, fillTime: '11.2s', note: 'coldest water in the building' },
+      { author: 'alex', scores: { taste:7, pressure:8, temp:8, fillSpeed:7, reliability:8, cleanliness:7, access:8 }, fillTime: '13.8s', note: 'solid, always works' },
+      { author: 'sam',  scores: { taste:9, pressure:10,temp:9, fillSpeed:9, reliability:9, cleanliness:9, access:9 }, fillTime: '10.1s', note: 'the GOAT fountain no contest' }
+    ]
   },
   {
-    id: 'f2', name: 'PAC Bathroom Right', location: 'Inside bathroom entryway',
-    floor: 1, x: 23.9, y: 28.6,
-    ratings: []
+    id: 'f2', name: 'Gym Lobby', location: 'Outside gym, B10 area',
+    floor: 1, x: 18, y: 73,
+    ratings: [
+      { author: 'nic',  scores: { taste:5, pressure:6, temp:4, fillSpeed:5, reliability:6, cleanliness:4, access:7 }, fillTime: '18.5s', note: 'lukewarm, disappointing' },
+      { author: 'alex', scores: { taste:4, pressure:5, temp:3, fillSpeed:4, reliability:5, cleanliness:5, access:7 }, fillTime: '20.0s', note: 'never cold enough after gym' }
+    ]
   },
   {
-    id: 'f3', name: 'PAC Bathroom Left', location: 'Inside bathroom entryway',
-    floor: 1, x: 23.9, y: 28.8,
-    ratings: []
+    id: 'f3', name: 'Performing Arts Wing', location: 'Near rooms 170-173, C-wing',
+    floor: 1, x: 50, y: 37,
+    ratings: [
+      { author: 'nic',  scores: { taste:6, pressure:7, temp:7, fillSpeed:6, reliability:5, cleanliness:7, access:6 }, fillTime: '16.0s', note: 'good but breaks a lot' },
+      { author: 'maya', scores: { taste:7, pressure:6, temp:8, fillSpeed:5, reliability:4, cleanliness:6, access:5 }, fillTime: '19.2s', note: 'out of order at least once a week' },
+      { author: 'sam',  scores: { taste:6, pressure:7, temp:7, fillSpeed:7, reliability:6, cleanliness:7, access:6 }, fillTime: '15.4s', note: 'decent when it works' }
+    ]
   },
   {
-    id: 'f4', name: 'Library High', location: 'Left of library enterance',
-    floor: 1, x: 17.2, y: 58.2,
-    ratings: []
+    id: 'f4', name: 'Science Wing Corridor', location: 'Near rooms 108-116, D-wing',
+    floor: 1, x: 73, y: 55,
+    ratings: [
+      { author: 'nic',  scores: { taste:9, pressure:7, temp:10,fillSpeed:8, reliability:9, cleanliness:10,access:8 }, fillTime: '12.0s', note: 'filtered water, always ice cold' },
+      { author: 'alex', scores: { taste:9, pressure:8, temp:9, fillSpeed:8, reliability:10,cleanliness:10,access:9 }, fillTime: '12.3s', note: 'best cleanliness for sure' },
+      { author: 'maya', scores: { taste:8, pressure:7, temp:10,fillSpeed:7, reliability:9, cleanliness:9, access:8 }, fillTime: '13.9s', note: 'love the bottle filler here' }
+    ]
   },
   {
-    id: 'f5', name: 'Library Low', location: 'Left of library enterance',
-    floor: 1, x: 17.2, y: 58.4,
-    ratings: []
+    id: 'f5', name: '100s Hallway', disabled: true, location: 'Rooms 101-107 corridor, S-6 area',
+    floor: 1, x: 44, y: 62,
+    ratings: [
+      { author: 'sam',  scores: { taste:3, pressure:4, temp:5, fillSpeed:3, reliability:7, cleanliness:3, access:8 }, fillTime: '24.1s', note: 'tastes like the pipes are old' },
+      { author: 'alex', scores: { taste:2, pressure:3, temp:4, fillSpeed:3, reliability:6, cleanliness:4, access:8 }, fillTime: '25.8s', note: 'avoid if possible' }
+    ]
   },
   {
-    id: 'f6', name: 'Senior Cafeteria', location: 'Outside of senior cafeteria enterance',
-    floor: 1, x: 15.1, y: 17.9,
-    ratings: []
+    id: 'f6', name: '120s Wing', location: 'Near rooms 121-127, lower B-wing',
+    floor: 1, x: 27, y: 83,
+    ratings: [
+      { author: 'nic',  scores: { taste:7, pressure:8, temp:8, fillSpeed:7, reliability:8, cleanliness:8, access:7 }, fillTime: '14.5s', note: 'reliable, no complaints' },
+      { author: 'maya', scores: { taste:6, pressure:7, temp:7, fillSpeed:6, reliability:8, cleanliness:7, access:7 }, fillTime: '16.2s', note: 'pretty average fountain' }
+    ]
   },
-  {
-    id: 'f7', name: 'Cafeteria Back', location: 'Right of vending machines in cafeteria',
-    floor: 1, x: 19, y: 8,
-    ratings: []
-  },
-  {
-    id: 'f8', name: 'Biology Wing', location: 'Across from room 104',
-    floor: 1, x: 35.2, y: 56.6,
-    ratings: []
-  },
-  {
-    id: 'f9', name: 'Chemistry Wing', location: 'Chemistry and art wing intersection',
-    floor: 1, x: 23.5, y: 88.2,
-    ratings: []
-  },
-  {
-    id: 'f10', name: 'Art Wing', location: 'Outside of stairwell closest to Gates',
-    floor: 1, x: 48.9, y: 84.5,
-    ratings: []
-  },
-  {
-    id: 'f11', name: 'Gym Right High', location: 'Outside of small gym - higher of right fountain pair',
-    floor: 1, x: 73.6, y: 57.2,
-    ratings: []
-  },
-  {
-    id: 'f12', name: 'Gym Right Low', location: 'Outside of small gym - lower of right fountain pair',
-    floor: 1, x: 73.4, y: 57.2,
-    ratings: []
-  },
-  {
-    id: 'f13', name: 'Gym Left High', location: 'Outside of small gym - higher of left fountain pair',
-    floor: 1, x: 77.3, y: 57.3,
-    ratings: []
-  },
-  {
-    id: 'f14', name: 'Gym Left Low', location: 'Outside of small gym - lower of left fountain pair',
-    floor: 1, x: 77.1, y: 57.3,
-    ratings: []
-  },
-  {
-    id: 'f15', name: 'Big Gym Hall', location: 'Between big and small gyms',
-    floor: 1, x: 63.9, y: 41.7,
-    ratings: []
-  },
-  { 
-    id: 'f2a', name: 'Spanish Wing', location: 'In front of room 266', 
-    floor: 2, x: 22.2, y: 34.7, 
-    ratings: []
-  },
-  { 
-    id: 'f2b', name: 'English Wing', location: 'Near bathrooms at end of English hall', 
-    floor: 2, x: 25.5, y: 54.3, 
-    ratings: [] 
-  },
-  { 
-    id: 'f2c', name: 'Math Wing', location: 'At history and math wing intersection', 
-    floor: 2, x: 26.8, y: 85.1, 
-    ratings: [] 
-  },
-  { 
-    id: 'f2d', name: 'History Wing', location: 'At history and health wing intersection', 
-    floor: 2, x: 51.9, y: 82.6, 
-    ratings: [] 
-  },
-  { 
-    id: 'f2e', name: 'Health Wing', location: 'Across from room 244', 
-    floor: 2, x: 60.1, y: 70.2, 
-    ratings: [] 
-  }
-
+  { id: 'f2a', name: 'Level 2 Placeholder A', location: 'Update with real location', floor: 2, x: 40, y: 45, ratings: [] },
+  { id: 'f2b', name: 'Level 2 Placeholder B', location: 'Update with real location', floor: 2, x: 65, y: 60, ratings: [] }
 ];
 
 // ── Helpers ──────────────────────────────────
@@ -489,19 +403,13 @@ function fountainAvgs(f) {
   }
   var ca = {};
   CATEGORIES.forEach(function(c) {
-    var vals = f.ratings
-      .map(function(r) { return r.scores[c.key]; })
-      .filter(function(v) { return v !== null && v !== undefined && !isNaN(v); });
-    ca[c.key] = vals.length ? avg(vals) : null;
+    ca[c.key] = avg(f.ratings.map(function(r) { return r.scores[c.key]; }));
   });
-  var scoredCats = CATEGORIES.filter(function(c) { return ca[c.key] !== null; });
-  var overall = scoredCats.length
-    ? avg(scoredCats.map(function(c) { return ca[c.key]; }))
-    : 0;
-  return { catAvgs: ca, overall: overall };
+  return { catAvgs: ca, overall: avg(CATEGORIES.map(function(c) { return ca[c.key]; })) };
 }
 
 function scoreColor(s) {
+  if (s < 0)  return '#9e9c94'; // disabled
   if (s === 0) return '#9e9c94';
   var t = Math.max(0, Math.min(10, s)) / 10;
   var r, g, b, u;
@@ -529,23 +437,21 @@ function avgFillTime(f) {
 }
 
 // ── Pan / Zoom via SVG viewBox ────────────────
-// Pan/zoom works by manipulating the SVG viewBox directly.
+// Instead of CSS transform (which rasterizes the SVG at layout size then
+// stretches the bitmap), we manipulate the SVG viewBox directly.
 // The browser re-renders the SVG at screen resolution on every change —
-// always crisp at any zoom level.
-// Dots live inside the floor SVG in the same coordinate space, so they
-// move with the map automatically — no repositioning needed.
-// updateDotScale() counters the zoom on dot radii so they stay a
-// constant visual size on screen regardless of zoom level.
+// always crisp, no matter how far you zoom in.
 //
 // State: vx, vy = top-left corner of visible area in SVG units
 //        vw, vh = visible area size in SVG units (smaller = more zoomed in)
-var vx = 0, vy = 0, vw = 1, vh = 1;
-var svgNatW = 1, svgNatH = 1;
+var vx = 0, vy = 0, vw = 1, vh = 1;  // set properly by resetView
+var svgNatW = 1, svgNatH = 1;         // SVG viewBox natural dimensions
 
 var isDragging = false;
 var dragStartX = 0, dragStartY = 0;
 var dragStartVx = 0, dragStartVy = 0;
 
+// Convert a screen pixel position to SVG coordinates
 function screenToSVG(px, py) {
   var c = document.getElementById('map-container');
   return {
@@ -559,74 +465,54 @@ function applyViewBox() {
   if (floorSvg) {
     floorSvg.setAttribute('viewBox', vx + ' ' + vy + ' ' + vw + ' ' + vh);
   }
-  updateDotScale();
+  repositionDots();
 }
 
-var CROPS = {
-  1: { x: 400, y: 250, w: 1840, h: 1640, ox: 460, oy: 220 },
-  2: { x: 410, y: 210, w: 1840, h: 1640, ox: 410, oy: 210 }
-};
-
 function resetView() {
-  var crop = CROPS[activeFloor];
-  var c    = document.getElementById('map-container');
-  var cw   = c.clientWidth, ch = c.clientHeight;
-  var pad  = 40;
-  var scaleX   = (cw - pad * 2) / crop.w;
-  var scaleY   = (ch - pad * 2) / crop.h;
+  if (!svgNatW || svgNatW === 1) return;
+  var c  = document.getElementById('map-container');
+  var cw = c.clientWidth, ch = c.clientHeight;
+  var pad = 40;
+
+  // Fit the full SVG into the container with padding
+  var fitW = svgNatW;
+  var fitH = svgNatH;
+  var scaleX = (cw - pad * 2) / fitW;
+  var scaleY = (ch - pad * 2) / fitH;
   var fitScale = Math.min(scaleX, scaleY);
+
+  // vw/vh: how many SVG units fit in the viewport
   vw = cw / fitScale;
   vh = ch / fitScale;
-  vx = crop.x + (crop.w - vw) / 2;
-  vy = crop.y + (crop.h - vh) / 2;
+
+  // Center the map
+  vx = (svgNatW - vw) / 2;
+  vy = (svgNatH - vh) / 2;
+
   applyViewBox();
 }
 
 function zoomBy(factor, px, py) {
-  var c = document.getElementById('map-container');
+  var c  = document.getElementById('map-container');
   px = (px !== undefined) ? px : c.clientWidth  / 2;
   py = (py !== undefined) ? py : c.clientHeight / 2;
+
+  // What SVG point is under the mouse?
   var anchor = screenToSVG(px, py);
-  var maxVw  = svgNatW * 3;
-  var minVw  = svgNatW / 20;
-  var newVw  = Math.max(minVw, Math.min(maxVw, vw / factor));
-  var newVh  = newVw * (c.clientHeight / c.clientWidth);
+
+  // Scale the viewport (smaller vw/vh = more zoomed in)
+  var maxVw = svgNatW * 3;   // max zoom out: 3x the natural size
+  var minVw = svgNatW / 20;  // max zoom in:  20x
+  var newVw = Math.max(minVw, Math.min(maxVw, vw / factor));
+  var newVh = newVw * (c.clientHeight / c.clientWidth);
+
+  // Keep the anchor point fixed on screen
   vx = anchor.x - (px / c.clientWidth)  * newVw;
   vy = anchor.y - (py / c.clientHeight) * newVh;
   vw = newVw;
   vh = newVh;
-  applyViewBox();
-}
 
-function loadRatings() {
-  sbFetch('ratings?select=*')
-    .then(function(r) { return r.json(); })
-    .then(function(rows) {
-      // Clear all existing ratings first
-      FOUNTAINS.forEach(function(f) { f.ratings = []; });
-      rows.forEach(function(row) {
-        var f = FOUNTAINS.find(function(f) { return f.id === row.fountain_id; });
-        if (!f) return;
-        f.ratings.push({
-          author:   row.author,
-          fillTime: row.fill_time,
-          note:     row.note,
-          scores: {
-            taste:       row.taste,
-            pressure:    row.pressure,
-            temp:        row.temp,
-            fillSpeed:   row.fill_speed,
-            consistency: row.consistency,
-            cleanliness: row.cleanliness,
-            access:      row.access
-          }
-        });
-      });
-      renderDots();
-      if (activeFountain) renderRatings(activeFountain);
-      if (rankingsOpen) renderRankings();
-    })
-    .catch(function(err) { console.error('Failed to load ratings:', err); });
+  applyViewBox();
 }
 
 function initPanZoom() {
@@ -647,7 +533,8 @@ function initPanZoom() {
   });
   window.addEventListener('mousemove', function(e) {
     if (!isDragging) return;
-    var c = document.getElementById('map-container');
+    var c  = document.getElementById('map-container');
+    // Convert pixel delta to SVG units
     var dx = (e.clientX - dragStartX) / c.clientWidth  * vw;
     var dy = (e.clientY - dragStartY) / c.clientHeight * vh;
     vx = dragStartVx - dx;
@@ -702,6 +589,7 @@ function loadFloor(n) {
   var container = document.getElementById('map-container');
   var isSVG     = /\.svg$/i.test(cfg.src);
 
+  // Remove old floor SVG/img (but keep dots-svg)
   var old = container.querySelector('.floor-layer');
   if (old) old.parentNode.removeChild(old);
 
@@ -713,136 +601,142 @@ function loadFloor(n) {
     renderDots();
   }
 
-  // Insert before the zoom buttons so it sits behind them in DOM order
-  var zoomBtns = container.querySelector('.zoom-btns');
-
   if (isSVG) {
     fetch(cfg.src)
       .then(function(r) { return r.text(); })
       .then(function(text) {
+        // Read natural viewBox dimensions
         var vb   = text.match(/viewBox=["']\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)/i);
         var natW = vb ? parseFloat(vb[1]) : 1200;
         var natH = vb ? parseFloat(vb[2]) : 900;
 
+        // Strip fixed width/height so the SVG scales via CSS
         text = text.replace(/(<svg[^>]*?)\s+width=["'][^"']*["']/i,  '$1');
         text = text.replace(/(<svg[^>]*?)\s+height=["'][^"']*["']/i, '$1');
 
+        // Parse and insert before dots-svg
         var parser  = new DOMParser();
         var doc     = parser.parseFromString(text, 'image/svg+xml');
         var inlined = doc.documentElement;
         inlined.id  = 'floor-svg';
         inlined.setAttribute('class', 'floor-layer');
+        // viewBox starts at the natural full extent; resetView() will zoom-fit it
         inlined.setAttribute('viewBox', '0 0 ' + natW + ' ' + natH);
         inlined.style.pointerEvents = 'none';
 
-        container.insertBefore(inlined, zoomBtns);
+        var dotsSvg = document.getElementById('dots-svg');
+        container.insertBefore(inlined, dotsSvg);
+
         onReady(natW, natH);
       })
       .catch(function() { onReady(1200, 900); });
   } else {
-    // Raster floors: wrap in an SVG so dots share the same coordinate space
-    var probe = new Image();
-    probe.onload = function() {
-      var natW = probe.naturalWidth  || 1200;
-      var natH = probe.naturalHeight || 900;
-
-      var wrapSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      wrapSvg.id  = 'floor-svg';
-      wrapSvg.setAttribute('class', 'floor-layer');
-      wrapSvg.setAttribute('viewBox', '0 0 ' + natW + ' ' + natH);
-      wrapSvg.style.pointerEvents = 'none';
-
-      var imgEl = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-      imgEl.setAttribute('href',   cfg.src);
-      imgEl.setAttribute('x',      '0');
-      imgEl.setAttribute('y',      '0');
-      imgEl.setAttribute('width',  natW);
-      imgEl.setAttribute('height', natH);
-      wrapSvg.appendChild(imgEl);
-
-      container.insertBefore(wrapSvg, zoomBtns);
-      onReady(natW, natH);
-    };
-    probe.onerror = function() { onReady(1200, 900); };
-    probe.src = cfg.src;
+    var img = document.createElement('img');
+    img.id        = 'floor-img';
+    img.className = 'floor-layer';
+    img.src       = cfg.src;
+    img.draggable = false;
+    img.onload  = function() { onReady(img.naturalWidth, img.naturalHeight); };
+    img.onerror = function() { onReady(1200, 900); };
+    var dotsSvg = document.getElementById('dots-svg');
+    container.insertBefore(img, dotsSvg);
   }
 }
 
 // ── Dots ─────────────────────────────────────
-// Dots live inside #floor-svg in SVG coordinate space, so pan/zoom moves
-// them with the map for free. updateDotScale() converts a fixed target pixel
-// size back into SVG units on every viewBox change, keeping dots visually
-// constant regardless of zoom level.
+// Dots are placed in screen pixels (on #dots-svg which fills the container).
+// We convert SVG-space fountain coords to screen pixels using the current viewBox.
+var DOT_R  = 8;
+var RING_R = 14;
 
-function updateDotScale() {
-  var floorSvg = document.getElementById('floor-svg');
-  if (!floorSvg || vw === 1) return;
-  // Use the SVG's rendered size rather than the container's clientWidth,
-  // so dot scale is unaffected by the panel opening/closing.
-  var rect = floorSvg.getBoundingClientRect();
-  if (!rect.width) return;
-  var pxPerUnit = rect.width / vw;
-  var r      =  8 / pxPerUnit;
-  var rRing  = 14 / pxPerUnit;
-  var sw     =  1.5 / pxPerUnit;
-  var swRing =  2   / pxPerUnit;
-
-  document.querySelectorAll('.f-dot').forEach(function(dot) {
-    var core = dot.querySelector('.f-core');
-    var ring = dot.querySelector('.f-ring');
-    if (core) { core.setAttribute('r', r);     core.setAttribute('stroke-width', sw); }
-    if (ring) { ring.setAttribute('r', rRing); ring.setAttribute('stroke-width', swRing); }
-  });
+function fountainScreenPos(f) {
+  var c = document.getElementById('map-container');
+  // SVG position (in natural SVG units)
+  var svgX = (f.x / 100) * svgNatW;
+  var svgY = (f.y / 100) * svgNatH;
+  // Convert to screen pixels using current viewBox
+  return {
+    cx: (svgX - vx) / vw * c.clientWidth,
+    cy: (svgY - vy) / vh * c.clientHeight
+  };
 }
 
 function renderDots() {
-  var old = document.getElementById('dot-layer');
-  if (old) old.parentNode.removeChild(old);
-  var floorSvg = document.getElementById('floor-svg');
-  if (!floorSvg) return;
-  var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-  g.id = 'dot-layer';
-  g.style.pointerEvents = 'all';
-  var ox = CROPS[activeFloor].ox;
-  var oy = CROPS[activeFloor].oy;
+  var svg = document.getElementById('dots-svg');
+  svg.innerHTML = '';
+  // Handle cross-floor deep link: open the fountain after its floor finishes loading
+  if (window._deepLinkFountain && window._deepLinkFountain.floor === activeFloor) {
+    var dlf = window._deepLinkFountain;
+    window._deepLinkFountain = null;
+    setTimeout(function() { openDetail(dlf); }, 100);
+  }
+
   FOUNTAINS.filter(function(f) { return f.floor === activeFloor; }).forEach(function(f) {
-    var score = getFountainScore(f, rankingsOpen ? rankSortKey : 'overall');
-    var col   = scoreColor(score);
-    var svgX  = ox + (f.x / 100) * svgNatW;
-    var svgY  = oy + (f.y / 100) * svgNatH;
-    var dot = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    dot.setAttribute('class', 'f-dot');
-    dot.setAttribute('data-id', f.id);
-    dot.style.cursor = 'pointer';
+    var disabled = !!f.disabled;
+    var overall  = disabled ? -1 : fountainAvgs(f).overall;
+    var col      = disabled ? '#9e9c94' : scoreColor(overall);
+    var pos      = fountainScreenPos(f);
+
+    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'f-dot' + (disabled ? ' disabled-dot' : ''));
+    g.setAttribute('data-id', f.id);
+    g.style.pointerEvents = 'all';
+
     var ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     ring.setAttribute('class', 'f-ring');
-    ring.setAttribute('cx', svgX); ring.setAttribute('cy', svgY);
-    ring.setAttribute('r', 1);
-    ring.setAttribute('stroke', col);
-    ring.setAttribute('fill', 'none');
-    ring.setAttribute('opacity', '0');
+    ring.setAttribute('cx', pos.cx);       ring.setAttribute('cy', pos.cy);
+    ring.setAttribute('r',  RING_R);       ring.setAttribute('stroke', col);
+    ring.setAttribute('stroke-width', 2);
+
     var core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     core.setAttribute('class', 'f-core');
-    core.setAttribute('cx', svgX); core.setAttribute('cy', svgY);
-    core.setAttribute('r', 1);
-    core.setAttribute('fill', col);
-    core.setAttribute('stroke', 'white');
-    dot.appendChild(ring);
-    dot.appendChild(core);
-    dot.addEventListener('mouseenter', function(e) {
-      showTip(e, f);
-      ring.setAttribute('opacity', '0.55');
-    });
-    dot.addEventListener('mousemove',  moveTip);
-    dot.addEventListener('mouseleave', function() {
-      hideTip();
-      if (!dot.classList.contains('active')) ring.setAttribute('opacity', '0');
-    });
-    dot.addEventListener('click', function(e) { e.stopPropagation(); openDetail(f); });
-    g.appendChild(dot);
+    core.setAttribute('cx', pos.cx);       core.setAttribute('cy', pos.cy);
+    core.setAttribute('r',  DOT_R);        core.setAttribute('fill', col);
+    core.setAttribute('stroke', 'white');  core.setAttribute('stroke-width', 1.5);
+
+    g.appendChild(ring);
+    g.appendChild(core);
+
+    // X mark for disabled fountains
+    if (disabled) {
+      var s = DOT_R * 0.55;
+      var mkLine = function(x1,y1,x2,y2) {
+        var ln = document.createElementNS('http://www.w3.org/2000/svg','line');
+        ln.setAttribute('x1', pos.cx+x1); ln.setAttribute('y1', pos.cy+y1);
+        ln.setAttribute('x2', pos.cx+x2); ln.setAttribute('y2', pos.cy+y2);
+        ln.setAttribute('stroke','white'); ln.setAttribute('stroke-width', 1.8 / scale);
+        ln.setAttribute('stroke-linecap','round');
+        g.appendChild(ln);
+      };
+      mkLine(-s,-s, s, s);
+      mkLine( s,-s,-s, s);
+    }
+
+    g.addEventListener('mouseenter', function(e) { showTip(e, f); });
+    g.addEventListener('mousemove',  moveTip);
+    g.addEventListener('mouseleave', hideTip);
+    g.addEventListener('click', function(e) { e.stopPropagation(); openDetail(f); });
+
+    svg.appendChild(g);
   });
-  floorSvg.appendChild(g);
-  updateDotScale();
+}
+
+function repositionDots() {
+  var dots = document.querySelectorAll('.f-dot');
+  for (var i = 0; i < dots.length; i++) {
+    var fid = dots[i].getAttribute('data-id');
+    var f   = null;
+    for (var j = 0; j < FOUNTAINS.length; j++) {
+      if (FOUNTAINS[j].id === fid) { f = FOUNTAINS[j]; break; }
+    }
+    if (!f) continue;
+    var pos     = fountainScreenPos(f);
+    var circles = dots[i].querySelectorAll('circle');
+    for (var k = 0; k < circles.length; k++) {
+      circles[k].setAttribute('cx', pos.cx);
+      circles[k].setAttribute('cy', pos.cy);
+    }
+  }
 }
 
 // ── Floor switching ───────────────────────────
@@ -896,26 +790,12 @@ function hideTip() { tip.style.display = 'none'; }
 // ── Detail panel ──────────────────────────────
 var activeFountain = null;
 
-function toggleFillField() {
-  var hasFill = document.getElementById('has-fill').checked;
-  document.getElementById('fill-field').style.display  = hasFill ? 'block' : 'none';
-  document.getElementById('no-fill-msg').style.display = hasFill ? 'none'  : 'block';
-}
-
 function openDetail(f) {
   hideTip();
   activeFountain = f;
-  // Deactivate any previously highlighted dot
-  document.querySelectorAll('.f-dot').forEach(function(d) {
-    d.classList.remove('active');
-    d.querySelector('.f-ring').setAttribute('opacity', '0');
-  });
-  // Highlight the newly selected dot
-  var activeDot = document.querySelector('.f-dot[data-id="' + f.id + '"]');
-  if (activeDot) {
-    activeDot.classList.add('active');
-    activeDot.querySelector('.f-ring').setAttribute('opacity', '0.55');
-  }
+  var dots = document.querySelectorAll('.f-dot');
+  for (var i = 0; i < dots.length; i++) dots[i].classList.remove('active');
+  document.querySelector('.f-dot[data-id="' + f.id + '"]').classList.add('active');
   document.getElementById('d-name').textContent = f.name;
   document.getElementById('d-loc').textContent  = f.location;
   switchTab('ratings');
@@ -928,12 +808,25 @@ function openDetail(f) {
 function renderRatings(f) {
   var avgs = fountainAvgs(f);
   var sn   = document.getElementById('d-score');
+
+  // Out-of-service banner
+  var existingBanner = document.getElementById('oos-banner');
+  if (existingBanner) existingBanner.parentNode.removeChild(existingBanner);
+  if (f.disabled) {
+    var banner = document.createElement('div');
+    banner.id = 'oos-banner';
+    banner.className = 'oos-banner';
+    banner.innerHTML = '<span class="oos-icon">&#9888;</span> This fountain is currently out of service.';
+    var dBody = document.getElementById('view-ratings');
+    dBody.insertBefore(banner, dBody.firstChild);
+  }
+
   if (!f.ratings.length) {
     sn.textContent = '-';
     sn.style.color = 'var(--text3)';
-    document.getElementById('d-meta').textContent  = 'no ratings yet';
-    document.getElementById('d-bars').innerHTML    = '';
-    document.getElementById('d-reviews').innerHTML = '';
+    document.getElementById('d-meta').textContent    = f.disabled ? 'out of service' : 'no ratings yet';
+    document.getElementById('d-bars').innerHTML      = '';
+    document.getElementById('d-reviews').innerHTML   = '';
     return;
   }
   sn.textContent = avgs.overall.toFixed(1);
@@ -941,11 +834,10 @@ function renderRatings(f) {
   document.getElementById('d-meta').textContent =
     f.ratings.length + ' rating' + (f.ratings.length !== 1 ? 's' : '');
 
-  var ft       = avgFillTime(f);
+  var ft      = avgFillTime(f);
   var barsHTML = '';
   CATEGORIES.forEach(function(c) {
     var v = avgs.catAvgs[c.key];
-    if (v === null) return;
     barsHTML += '<div class="bar-row">';
     barsHTML += '<div class="bar-meta"><span class="bn">' + c.label + '</span>';
     barsHTML += '<span class="bv" style="color:' + scoreColor(v) + '">' + v.toFixed(1) + '</span></div>';
@@ -959,16 +851,12 @@ function renderRatings(f) {
 
   var revHTML = '';
   f.ratings.forEach(function(r) {
-    var scoredVals = CATEGORIES
-      .map(function(c) { return r.scores[c.key]; })
-      .filter(function(v) { return v !== null && v !== undefined && !isNaN(v); });
-    var ro = scoredVals.length ? avg(scoredVals) : 0;
+    var ro = avg(CATEGORIES.map(function(c) { return r.scores[c.key]; }));
     revHTML += '<div class="review">';
     revHTML += '<div class="r-top"><span class="r-author">' + r.author + '</span>';
     revHTML += '<span class="r-score" style="color:' + scoreColor(ro) + '">' + ro.toFixed(1) + '</span></div>';
     revHTML += '<div class="r-chips">';
     CATEGORIES.forEach(function(c) {
-      if (r.scores[c.key] === null || r.scores[c.key] === undefined) return;
       revHTML += '<span class="r-chip">' + c.label.slice(0,4).toLowerCase() + ' ' + r.scores[c.key] + '</span>';
     });
     if (r.fillTime) revHTML += '<span class="r-chip fill-chip">&#9201; ' + r.fillTime + '</span>';
@@ -981,10 +869,8 @@ function renderRatings(f) {
 
 function closeDetail() {
   document.getElementById('detail').classList.remove('open');
-  document.querySelectorAll('.f-dot').forEach(function(d) {
-    d.classList.remove('active');
-    d.querySelector('.f-ring').setAttribute('opacity', '0');
-  });
+  var dots = document.querySelectorAll('.f-dot');
+  for (var i = 0; i < dots.length; i++) dots[i].classList.remove('active');
   activeFountain = null;
   setTimeout(function() {
     document.getElementById('detail-content').style.display = 'none';
@@ -996,12 +882,15 @@ function closeDetail() {
 function switchTab(tab) {
   document.getElementById('tab-ratings').classList.toggle('active', tab === 'ratings');
   document.getElementById('tab-add').classList.toggle('active',     tab === 'add');
+  document.getElementById('tab-qr').classList.toggle('active',      tab === 'qr');
   document.getElementById('view-ratings').style.display = tab === 'ratings' ? 'block' : 'none';
   document.getElementById('view-add').style.display     = tab === 'add'     ? 'block' : 'none';
+  document.getElementById('view-qr').style.display      = tab === 'qr'      ? 'flex'  : 'none';
   if (tab === 'add') resetForm();
+  if (tab === 'qr' && activeFountain) renderQR(activeFountain);
 }
 
-var SLIDER_KEYS = ['taste','pressure','temp','fillSpeed','consistency','cleanliness','access'];
+var SLIDER_KEYS = ['taste','pressure','temp','fillSpeed','reliability','cleanliness','access'];
 
 function updateSlider(key, val) {
   var el = document.getElementById('prev-' + key);
@@ -1016,9 +905,6 @@ function resetForm() {
   document.getElementById('f-author').value   = '';
   document.getElementById('f-filltime').value = '';
   document.getElementById('f-note').value     = '';
-  document.getElementById('has-fill').checked = true;
-  document.getElementById('fill-field').style.display  = 'block';
-  document.getElementById('no-fill-msg').style.display = 'none';
   document.getElementById('submit-success').style.display = 'none';
   document.querySelector('.submit-btn').style.display     = 'block';
 }
@@ -1026,180 +912,100 @@ function resetForm() {
 function submitRating() {
   if (!activeFountain) return;
   var author   = document.getElementById('f-author').value.trim()   || 'anonymous';
-  var hasFill  = document.getElementById('has-fill').checked;
-  var fillTime = hasFill ? (document.getElementById('f-filltime').value.trim() || null) : null;
+  var fillTime = document.getElementById('f-filltime').value.trim() || null;
   var note     = document.getElementById('f-note').value.trim()     || null;
   var scores   = {};
   SLIDER_KEYS.forEach(function(k) { scores[k] = +document.getElementById('sl-' + k).value; });
+  activeFountain.ratings.push({ author: author, scores: scores, fillTime: fillTime, note: note });
+  document.querySelector('.submit-btn').style.display     = 'none';
+  document.getElementById('submit-success').style.display = 'block';
+  setTimeout(function() {
+    renderRatings(activeFountain);
+    renderDots();
+    switchTab('ratings');
+  }, 1200);
+}
 
-  var btn = document.querySelector('.submit-btn');
-  btn.disabled = true;
-  btn.style.opacity = '0.5';
+// ── QR code + deep linking ───────────────────
+function fountainURL(f) {
+  var base = window.location.href.split('?')[0];
+  return base + '?fountain=' + f.id;
+}
 
-  sbFetch('ratings', {
-    method: 'POST',
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=minimal'
-    },
-    body: JSON.stringify({
-      fountain_id: activeFountain.id,
-      author:      author,
-      taste:       scores.taste,
-      pressure:    scores.pressure,
-      temp:        scores.temp,
-      fill_speed:  hasFill ? scores.fillSpeed : null,
-      consistency: scores.consistency,
-      cleanliness: scores.cleanliness,
-      access:      scores.access,
-      fill_time:   fillTime,
-      note:        note
-    })
-  })
-  .then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    btn.style.display = 'none';
-    document.getElementById('submit-success').style.display = 'block';
+function renderQR(f) {
+  var url = fountainURL(f);
+  // Use the free QR code API (no tracking, no login)
+  var apiUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(url);
+  document.getElementById('qr-img').src = apiUrl;
+}
+
+function copyFountainLink() {
+  if (!activeFountain) return;
+  var url = fountainURL(activeFountain);
+  navigator.clipboard.writeText(url).then(function() {
+    var btn = document.getElementById('qr-copy-btn');
+    var orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
     setTimeout(function() {
-      loadRatings();
-      switchTab('ratings');
-    }, 1200);
-  })
-  .catch(function(err) {
-    console.error('Failed to submit rating:', err);
-    btn.disabled = false;
-    btn.style.opacity = '';
-    alert('Failed to submit — please try again.');
+      btn.textContent = orig;
+      btn.classList.remove('copied');
+    }, 1800);
   });
 }
 
-// ── Rankings ─────────────────────────────────
-var rankingsOpen  = false;
-var rankSortKey   = 'overall';
-var rankFloorFilter = 'all';
-
-var RANK_SORTS = [
-  { key: 'overall',     label: 'Overall' },
-  { key: 'taste',       label: 'Taste' },
-  { key: 'pressure',    label: 'Pressure' },
-  { key: 'temp',        label: 'Temp' },
-  { key: 'fillSpeed',   label: 'Fill speed' },
-  { key: 'consistency', label: 'Consistency' },
-  { key: 'cleanliness', label: 'Cleanliness' },
-  { key: 'access',      label: 'Access' }
-];
-
-function toggleRankings() {
-  rankingsOpen = !rankingsOpen;
-  document.getElementById('rank-btn').classList.toggle('active', rankingsOpen);
-  document.getElementById('rankings-sidebar').classList.toggle('open', rankingsOpen);
-  if (rankingsOpen) renderRankings();
+function printQR() {
+  if (!activeFountain) return;
+  var url = fountainURL(activeFountain);
+  var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(url);
+  var win = window.open('', '_blank');
+  win.document.write(
+    '<html><head><title>QR - ' + activeFountain.name + '</title>' +
+    '<style>body{font-family:sans-serif;text-align:center;padding:40px;}' +
+    'img{width:260px;height:260px;margin:20px 0;}' +
+    'h2{font-size:18px;margin-bottom:4px;}' +
+    'p{font-size:12px;color:#666;margin:0;}' +
+    '@media print{button{display:none}}' +
+    '</style></head><body>' +
+    '<h2>' + activeFountain.name + '</h2>' +
+    '<p>' + activeFountain.location + '</p>' +
+    '<br/><img src="' + qrSrc + '" onload="window.print()"/>' +
+    '<br/><button onclick="window.print()">Print</button>' +
+    '</body></html>'
+  );
+  win.document.close();
 }
 
-function setRankFloor(f) {
-  rankFloorFilter = f;
-  ['all', 1, 2].forEach(function(v) {
-    document.getElementById('rfbtn-' + v).classList.toggle('active', v === f);
-  });
-  renderRankings();
-}
-
-function setRankSort(key) {
-  rankSortKey = key;
-  renderRankings();
-  // Recolor dots to reflect the new factor
-  renderDots();
-}
-
-function getFountainScore(f, key) {
-  var avgs = fountainAvgs(f);
-  if (key === 'overall') return avgs.overall;
-  var v = avgs.catAvgs[key];
-  return (v !== null && v !== undefined) ? v : null;
-}
-
-function renderRankings() {
-  // Sort buttons
-  document.getElementById('rank-sort-bar').innerHTML = RANK_SORTS.map(function(s) {
-    return '<button class="rank-sort-btn' + (rankSortKey === s.key ? ' active' : '') +
-      '" onclick="setRankSort(\'' + s.key + '\')">' + s.label + '</button>';
-  }).join('');
-
-  // Filter by floor
-  var fountains = FOUNTAINS.filter(function(f) {
-    var hasRatings = f.ratings.length > 0;
-    if (rankFloorFilter === 'all') return hasRatings;
-    return f.floor === rankFloorFilter && hasRatings;
-  });
-
-  if (!fountains.length) {
-    document.getElementById('rank-list').innerHTML =
-      '<div class="rank-no-ratings">No rated fountains yet.</div>';
-    return;
+// Check URL for deep link (?fountain=fX) — auto-open that fountain on load
+function checkDeepLink() {
+  var params = new URLSearchParams(window.location.search);
+  var fid = params.get('fountain');
+  if (!fid) return;
+  var f = null;
+  for (var i = 0; i < FOUNTAINS.length; i++) {
+    if (FOUNTAINS[i].id === fid) { f = FOUNTAINS[i]; break; }
   }
-
-  fountains.sort(function(a, b) {
-  var sa = getFountainScore(a, rankSortKey);
-  var sb = getFountainScore(b, rankSortKey);
-  if (sa === null && sb === null) return 0;
-  if (sa === null) return 1;
-  if (sb === null) return -1;
-  return sb - sa;
-  });
-
-  document.getElementById('rank-list').innerHTML = fountains.map(function(f, i) {
-    var score = getFountainScore(f, rankSortKey);
-    var col   = score !== null ? scoreColor(score) : 'var(--text3)';
-    var scoreStr = score !== null ? score.toFixed(1) : '—';
-    var floorTag = rankFloorFilter === 'all' ? '<div class="rank-floor-tag">Level ' + f.floor + '</div>' : '';
-    return '<div class="rank-item" onclick="onRankClick(\'' + f.id + '\')">' +
-      '<div class="rank-num">' + (i + 1) + '</div>' +
-      '<div class="rank-info">' +
-        '<div class="rank-name">' + f.name + '</div>' +
-        '<div class="rank-loc">' + f.location + '</div>' +
-        floorTag +
-      '</div>' +
-      '<div class="rank-score" style="color:' + col + '">' + scoreStr + '</div>' +
-    '</div>';
-  }).join('');
-}
-
-function onRankClick(id) {
-  var f = FOUNTAINS.find(function(f) { return f.id === id; });
   if (!f) return;
+  // Switch to the right floor first
   if (f.floor !== activeFloor) {
-    switchFloor(f.floor);
-    setTimeout(function() {
-      zoomToFountain(f);
-      openDetail(f);
-    }, 600); // slightly longer to let SVG fully load
+    // loadFloor is async; open detail after floor loads
+    activeFloor = f.floor;
+    document.getElementById('fbtn-1').classList.toggle('active', f.floor === 1);
+    document.getElementById('fbtn-2').classList.toggle('active', f.floor === 2);
+    document.getElementById('nav-floor-tag').textContent = 'Level ' + f.floor + ' · SHS';
+    var origRenderDots = renderDots;
+    var opened = false;
+    var origOnReady = window._onFloorReady;
+    window._deepLinkFountain = f;
   } else {
-    zoomToFountain(f);
-    openDetail(f);
+    // Already on right floor — open immediately after a tick
+    setTimeout(function() { openDetail(f); }, 100);
   }
-}
-
-function zoomToFountain(f) {
-  var c  = document.getElementById('map-container');
-  var ox = CROPS[f.floor].ox;
-  var oy = CROPS[f.floor].oy;
-  var svgX = ox + (f.x / 100) * svgNatW;
-  var svgY = oy + (f.y / 100) * svgNatH;
-  var targetVw = svgNatW / 6;
-  var targetVh = targetVw * (c.clientHeight / c.clientWidth);
-  vx = svgX - targetVw / 2;
-  vy = svgY - targetVh / 2;
-  vw = targetVw;
-  vh = targetVh;
-  applyViewBox();
 }
 
 // ── Init ──────────────────────────────────────
 initPanZoom();
 loadFloor(1);
-loadRatings();
 
 var f1c = FOUNTAINS.filter(function(f) { return f.floor === 1; }).length;
 document.getElementById('f-count').textContent = f1c + ' fountain' + (f1c !== 1 ? 's' : '');
@@ -1211,6 +1017,8 @@ window.addEventListener('resize', function() {
     resetView();
   }
 });
+
+checkDeepLink();
 </script>
 </body>
 </html>
