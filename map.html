@@ -1041,17 +1041,17 @@ function renderDots() {
 
     // × mark for disabled fountains
     if (disabled) {
-      var cross = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    var cross = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       cross.setAttribute('class', 'f-cross');
       cross.setAttribute('x', svgX);
       cross.setAttribute('y', svgY);
       cross.setAttribute('text-anchor', 'middle');
       cross.setAttribute('dominant-baseline', 'central');
-      cross.setAttribute('fill', '#9e9c94');
-      cross.setAttribute('font-size', '1');
-      cross.setAttribute('font-family', 'sans-serif');
+      cross.setAttribute('fill', '#6b7280'); // slightly darker gray
+      cross.setAttribute('font-size', '12'); // ← key fix
+      cross.setAttribute('font-weight', 'bold'); // makes it clearer
       cross.setAttribute('pointer-events', 'none');
-      cross.textContent = '✕';
+      cross.textContent = '×'; // cleaner than ✕ in SVG
       dot.appendChild(cross);
     }
 
