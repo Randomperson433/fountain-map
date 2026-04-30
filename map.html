@@ -596,14 +596,16 @@ function scoreColor(s) {
   var r, g, b, u;
   if (t < 0.5) {
     u = t * 2;
-    r = Math.round(155 + u * (249 - 155));
-    g = Math.round(28  + u * (115 - 28));
-    b = Math.round(28  + u * (22  - 28));
+    // dark red → muted grey-purple midpoint
+    r = Math.round(180 + u * (120 - 180));
+    g = Math.round(30  + u * (110 - 30));
+    b = Math.round(30  + u * (110 - 30));
   } else {
     u = (t - 0.5) * 2;
-    r = Math.round(249 + u * (21  - 249));
-    g = Math.round(115 + u * (128 - 115));
-    b = Math.round(22  + u * (61  - 22));
+    // muted grey-purple midpoint → forest green
+    r = Math.round(120 + u * (30  - 120));
+    g = Math.round(110 + u * (150 - 110));
+    b = Math.round(110 + u * (60  - 110));
   }
   return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
