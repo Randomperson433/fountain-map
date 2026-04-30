@@ -594,18 +594,16 @@ function scoreColor(s) {
   if (s === null || s === undefined) return '#9e9c94';
   var t = Math.max(0, Math.min(10, s)) / 10;
   var r, g, b, u;
-  if (t < 0.35) {
-    u = t / 0.35;
-    // red → yellow
-    r = Math.round(180 + u * (220 - 180));
-    g = Math.round(30  + u * (200 - 30));
-    b = 20;
+  if (t < 0.5) {
+    u = t * 2;
+    r = Math.round(155 + u * (249 - 155));
+    g = Math.round(28  + u * (115 - 28));
+    b = Math.round(28  + u * (22  - 28));
   } else {
-    u = (t - 0.35) / 0.65;
-    // yellow → green
-    r = Math.round(220 - u * 200);
-    g = Math.round(200 - u * (200 - 160));
-    b = Math.round(20  + u * 40);
+    u = (t - 0.5) * 2;
+    r = Math.round(249 + u * (21  - 249));
+    g = Math.round(115 + u * (128 - 115));
+    b = Math.round(22  + u * (61  - 22));
   }
   return 'rgb(' + r + ',' + g + ',' + b + ')';
 }
