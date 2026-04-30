@@ -995,7 +995,7 @@ function updateDotScale() {
     var cross = dot.querySelector('.f-cross');
     if (core) { core.setAttribute('r', r);     core.setAttribute('stroke-width', sw); }
     if (ring) { ring.setAttribute('r', rRing); ring.setAttribute('stroke-width', swRing); }
-    if (cross) { cross.setAttribute('font-size', fontSize); }
+    if (cross) { cross.setAttribute('font-size', r * 1.5); }
   });
 }
 
@@ -1049,7 +1049,6 @@ function renderDots() {
       cross.setAttribute('text-anchor', 'middle');
       cross.setAttribute('dominant-baseline', 'central');
       cross.setAttribute('fill', '#6b7280'); // slightly darker gray
-      cross.setAttribute('font-size', '12'); // ← key fix
       cross.setAttribute('font-weight', 'bold'); // makes it clearer
       cross.setAttribute('pointer-events', 'none');
       cross.textContent = '×'; // cleaner than ✕ in SVG
