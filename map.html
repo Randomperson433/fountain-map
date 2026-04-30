@@ -591,7 +591,7 @@ function fountainAvgs(f) {
 }
 
 function scoreColor(s) {
-  if (s === 0) return '#9e9c94';
+  if (s === null || s === undefined) return '#9e9c94';
   var t = Math.max(0, Math.min(10, s)) / 10;
   var r, g, b, u;
   if (t < 0.5) {
@@ -1023,7 +1023,7 @@ function renderDots() {
     console.log(f.id, f.disabled);
     var disabled = !!f.disabled;
     var score    = disabled ? 0 : getFountainScore(f, rankingsOpen ? rankSortKey : 'overall');
-    var col      = disabled ? '#b0aca4' : scoreColor(score);
+    var col      = disabled ? '#b0aca4' : (score === null ? '#9e9c94' : scoreColor(score));
     var svgX     = ox + (f.x / 100) * svgNatW;
     var svgY     = oy + (f.y / 100) * svgNatH;
 
