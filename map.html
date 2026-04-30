@@ -1373,6 +1373,7 @@ function setRankSort(key) {
 
 function getFountainScore(f, key) {
   if (f.disabled) return null;
+  if (!f.ratings.length) return null;
   var avgs = fountainAvgs(f);
   if (key === 'overall') return avgs.overall;
   if (key === 'core') {
