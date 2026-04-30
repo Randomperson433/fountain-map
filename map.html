@@ -1346,7 +1346,8 @@ var RANK_SORTS = [
   { key: 'fillSpeed',   label: 'Fill speed' },
   { key: 'consistency', label: 'Consistency' },
   { key: 'cleanliness', label: 'Cleanliness' },
-  { key: 'access',      label: 'Access' }
+  { key: 'access',      label: 'Access' },
+  { key: 'core', label: 'Core (T,P,T)' },
 ];
 
 function toggleRankings() {
@@ -1374,10 +1375,15 @@ function getFountainScore(f, key) {
   if (f.disabled) return null;
   var avgs = fountainAvgs(f);
   if (key === 'overall') return avgs.overall;
+  if (key === 'core') {
+    var vals = ['taste', 'pressure', 'temp']
+      .map(function(k) { return avgs.catAvgs[k]; })
+      .filter(function(v) { return v !== null && v !== undefined; });
+    return vals.length ? avg(vals) : null;
+  }
   var v = avgs.catAvgs[key];
   return (v !== null && v !== undefined) ? v : null;
 }
-
 function renderRankings() {
   document.getElementById('rank-sort-bar').innerHTML = RANK_SORTS.map(function(s) {
     return '<button class="rank-sort-btn' + (rankSortKey === s.key ? ' active' : '') +
