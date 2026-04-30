@@ -527,6 +527,11 @@ var FOUNTAINS = [
     floor: 1, x: 63.9, y: 41.7,
     ratings: []
   },
+  {
+    id: 'f16', name: 'Big Gym Entrance', location: 'In the lobby of the Big Gym',
+    floor: 1, x: 71.8, y: 16.8,
+    ratings: []
+  },
   { 
     id: 'f2a', name: 'Spanish Wing', location: 'In front of room 266', 
     floor: 2, x: 22.2, y: 34.7, 
@@ -1040,7 +1045,7 @@ function renderDots() {
     dot.appendChild(ring);
     dot.appendChild(core);
 
-    // × mark for disabled fountains
+    // x mark for disabled fountains
     if (disabled) {
     var cross = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       cross.setAttribute('class', 'f-cross');
@@ -1048,10 +1053,10 @@ function renderDots() {
       cross.setAttribute('y', svgY);
       cross.setAttribute('text-anchor', 'middle');
       cross.setAttribute('dominant-baseline', 'central');
-      cross.setAttribute('fill', '#6b7280'); // slightly darker gray
-      cross.setAttribute('font-weight', 'bold'); // makes it clearer
+      cross.setAttribute('fill', '#6b7280'); 
+      cross.setAttribute('font-weight', 'bold'); 
       cross.setAttribute('pointer-events', 'none');
-      cross.textContent = '×'; // cleaner than ✕ in SVG
+      cross.textContent = '×'; 
       dot.appendChild(cross);
     }
 
