@@ -347,10 +347,6 @@ nav {
             <span class="oos-icon">🚫</span>
             <span>Currently out of service</span>
           </div>
-          <div class="oos-banner" id="no-fill-tag" style="display:none; background:#fefce8; border-color:#fef08a; color:#854d0e;">
-            <span class="oos-icon">🚱</span>
-            <span>No bottle fill station</span>
-          </div>
           <div class="score-block"><span class="score-n" id="d-score"></span><span class="score-d">/10</span></div>
           <div class="score-meta" id="d-meta"></div>
           <div class="bars" id="d-bars"></div>
@@ -1172,7 +1168,7 @@ function openDetail(f) {
     activeDot.classList.add('active');
     activeDot.querySelector('.f-ring').setAttribute('opacity', '0.55');
   }
-  document.getElementById('d-name').textContent = f.name;
+  document.getElementById('d-name').innerHTML = f.name + (f.hasFill === false ? ' <span style="font-size:16px;" title="No bottle fill station">🚱</span>' : '');
   document.getElementById('d-loc').textContent  = f.location;
   switchTab('ratings');
   renderRatings(f);
@@ -1185,7 +1181,6 @@ function renderRatings(f) {
   var banner    = document.getElementById('oos-banner');
   var bannerAdd = document.getElementById('oos-banner-add');
   var addWrap   = document.getElementById('add-form-wrap');
-  var noFillTag = document.getElementById('no-fill-tag');
 
   if (noFillTag) noFillTag.style.display = f.hasFill ? 'none' : 'flex';
 
