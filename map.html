@@ -347,6 +347,10 @@ nav {
             <span class="oos-icon">🚫</span>
             <span>Currently out of service</span>
           </div>
+          <div class="oos-banner" id="no-fill-tag" style="display:none; background:#fefce8; border-color:#fef08a; color:#854d0e;">
+            <span class="oos-icon">🚱</span>
+            <span>No bottle fill station</span>
+          </div>
           <div class="score-block"><span class="score-n" id="d-score"></span><span class="score-d">/10</span></div>
           <div class="score-meta" id="d-meta"></div>
           <div class="bars" id="d-bars"></div>
@@ -370,10 +374,6 @@ nav {
             <div class="field"><div class="field-label">Temperature<span class="score-preview" id="prev-temp">5.0</span></div><input class="score-slider" id="sl-temp" type="range" min="0" max="10" step="0.1" value="5" oninput="updateSlider('temp',this.value)"/></div>
             <div class="field">
               <div class="field-label" style="margin-bottom:8px;">Bottle fill speed
-                <label style="display:flex;align-items:center;gap:5px;font-size:10px;letter-spacing:0.05em;cursor:pointer;font-weight:normal;">
-                  <input type="checkbox" id="has-fill" checked onchange="toggleFillField()" style="accent-color:var(--text);cursor:pointer;"/>
-                  has fill station
-                </label>
               </div>
               <div id="fill-field">
                 <div class="fill-time-group">
@@ -455,71 +455,85 @@ var FOUNTAINS = [
   {
     id: 'f1', name: 'Main Entrance', location: 'In front of room 160, left of office',
     floor: 1, x: 18.8, y: 38.4,
+    hasFill: false,
     ratings: []
   },
   {
     id: 'f2', name: 'PAC Bathroom Right', location: 'Inside bathroom entryway',
     floor: 1, x: 23.9, y: 28.6,
+    hasFill: false,
     ratings: []
   },
   {
     id: 'f3', name: 'PAC Bathroom Left', location: 'Inside bathroom entryway',
     floor: 1, x: 23.9, y: 28.8,
+    hasFill: true,
     ratings: []
   },
   {
     id: 'f4', name: 'Library High', location: 'Left of library enterance',
     floor: 1, x: 17.2, y: 58.2,
+    hasFill: false,
     ratings: []
   },
   {
     id: 'f5', name: 'Library Low', location: 'Left of library enterance',
     floor: 1, x: 17.2, y: 58.4,
+    hasFill: false,
     ratings: []
   },
   {
     id: 'f6', name: 'Senior Cafeteria', location: 'Outside of senior cafeteria enterance',
     floor: 1, x: 15.1, y: 17.9,
+    hasFill: true,
     ratings: []
   },
   {
     id: 'f7', name: 'Cafeteria Back', location: 'Right of vending machines in cafeteria',
     floor: 1, x: 19, y: 8,
+    hasFill: false,
     ratings: []
   },
   {
     id: 'f8', name: 'Biology Wing', location: 'Across from room 104',
     floor: 1, x: 35.2, y: 56.6,
+    hasFill: true,
     ratings: []
   },
   {
     id: 'f9', name: 'Chemistry Wing', location: 'Chemistry and art wing intersection',
     floor: 1, x: 23.5, y: 88.2,
+    hasFill: true,
     ratings: []
   },
   {
     id: 'f10', name: 'Art Wing', location: 'Outside of stairwell closest to Gates',
     floor: 1, x: 48.9, y: 84.5,
+    hasFill: false,
     ratings: []
   },
   {
     id: 'f11', name: 'Gym Right High', location: 'Outside of small gym - higher of right fountain pair',
     floor: 1, x: 73.6, y: 57.2,
+    hasFill: true,
     ratings: []
   },
   {
     id: 'f12', name: 'Gym Right Low', location: 'Outside of small gym - lower of right fountain pair',
     floor: 1, x: 73.4, y: 57.2,
+    hasFill: true,
     ratings: []
   },
   {
     id: 'f13', name: 'Gym Left High', location: 'Outside of small gym - higher of left fountain pair',
     floor: 1, x: 77.3, y: 57.3,
+    hasFill: false,
     ratings: []
   },
   {
     id: 'f14', name: 'Gym Left Low', location: 'Outside of small gym - lower of left fountain pair',
     floor: 1, x: 77.1, y: 57.3,
+    hasFill: false,
     ratings: []
   },
   {
@@ -1136,7 +1150,7 @@ function hideTip() { tip.style.display = 'none'; }
 var activeFountain = null;
 
 function toggleFillField() {
-  var hasFill = document.getElementById('has-fill').checked;
+  var hasFill = activeFountain && activeFountain.hasFill;
   document.getElementById('fill-field').style.display  = hasFill ? 'block' : 'none';
   document.getElementById('no-fill-msg').style.display = hasFill ? 'none'  : 'block';
 }
@@ -1168,10 +1182,13 @@ function openDetail(f) {
 }
 
 function renderRatings(f) {
-  // Show/hide OOS banner
   var banner    = document.getElementById('oos-banner');
   var bannerAdd = document.getElementById('oos-banner-add');
   var addWrap   = document.getElementById('add-form-wrap');
+  var noFillTag = document.getElementById('no-fill-tag');
+
+  if (noFillTag) noFillTag.style.display = f.hasFill ? 'none' : 'flex';
+
   if (f.disabled) {
     banner.style.display    = 'flex';
     bannerAdd.style.display = 'flex';
@@ -1273,18 +1290,16 @@ function resetForm() {
   document.getElementById('f-author').value   = '';
   document.getElementById('f-filltime').value = '';
   document.getElementById('f-note').value     = '';
-  document.getElementById('has-fill').checked = true;
-  document.getElementById('fill-field').style.display  = 'block';
-  document.getElementById('no-fill-msg').style.display = 'none';
   document.getElementById('submit-success').style.display = 'none';
   document.querySelector('.submit-btn').style.display     = 'block';
+  toggleFillField();
 }
 
 function submitRating() {
   if (!activeFountain) return;
   if (activeFountain.disabled) { alert('This fountain is out of service.'); return; }
   var author   = document.getElementById('f-author').value.trim()   || 'anonymous';
-  var hasFill  = document.getElementById('has-fill').checked;
+  var hasFill = activeFountain && activeFountain.hasFill;
   var fillTime = hasFill ? (document.getElementById('f-filltime').value.trim() || null) : null;
   var note     = document.getElementById('f-note').value.trim()     || null;
   var scores   = {};
