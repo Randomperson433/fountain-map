@@ -1331,6 +1331,11 @@ function submitRating() {
     setTimeout(function() {
       loadRatings();
       switchTab('ratings');
+      // re-show the button so another rating can be added
+      btn.style.display = 'block';
+      btn.disabled = false;
+      btn.style.opacity = '';
+      document.getElementById('submit-success').style.display = 'none';
     }, 1200);
   })
   .catch(function(err) {
